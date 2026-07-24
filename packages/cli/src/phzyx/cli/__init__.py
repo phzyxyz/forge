@@ -1,0 +1,436 @@
+"""Phzyx CLI — ``phzyx`` command-line interface."""
+
+from __future__ import annotations
+
+import argparse
+import importlib
+import os
+import sys
+from typing import Any
+
+__version__ = "0.1.0"
+
+
+def main(argv: list[str] | None = None) -> int:
+    """Entry point for the ``phzyx`` console script."""
+    args = list(argv if argv is not None else sys.argv[1:])
+    parser = argparse.ArgumentParser(prog="phzyx", description="Phzyx CLI")
+    parser.add_argument("--version", action="version", version=f"phzyx {__version__}")
+    sub = parser.add_subparsers(dest="command")
+
+    db = sub.add_parser("db", help="database schema commands")
+    db_sub = db.add_subparsers(dest="db_command")
+
+    status = db_sub.add_parser("status", help="show dialect version and capabilities")
+    status.add_argument("--database-url", default=None)
+
+    push = db_sub.add_parser("push", help="apply desired schema (local; archive-first)")
+    push.add_argument("--database-url", default=None)
+    push.add_argument("--models", default=None, help="module:attr list of models")
+    push.add_argument("--dry-run", action="store_true")
+    push.add_argument("--yes", action="store_true")
+    push.add_argument("--tui", action="store_true", help="interactive plan review")
+    push.add_argument("--allow-production", action="store_true")
+
+    lint = db_sub.add_parser("lint", help="lint plan for destructive ops (CI)")
+    lint.add_argument("--database-url", default=None)
+    lint.add_argument("--models", default=None)
+
+    seed = db_sub.add_parser("seed", help="run a seed callable module:attr")
+    seed.add_argument("target", help="module:callable")
+
+    auth = sub.add_parser("auth", help="auth helpers (requires phzyx-auth)")
+    auth_sub = auth.add_subparsers(dest="auth_command")
+    su = auth_sub.add_parser("create-superuser", help="create staff superuser")
+    su.add_argument("--email")
+    su.add_argument("--password")
+
+    add = sub.add_parser("add", help="add package scaffolds to a project")
+    add_sub = add.add_subparsers(dest="add_command")
+    add_auth = add_sub.add_parser("auth", help="scaffold phzyx-auth wiring")
+    add_auth.add_argument(
+        "--path",
+        default=".",
+        help="project directory (default: cwd)",
+    )
+    add_auth.add_argument(
+        "--module",
+        default="auth.py",
+        help="output module filename (default: auth.py)",
+    )
+    add_auth.add_argument("--force", action="store_true", help="overwrite existing files")
+    add_auth.add_argument("--dry-run", action="store_true")
+
+    add_admin = add_sub.add_parser("admin", help="scaffold AdminBoard wiring")
+    add_admin.add_argument(
+        "--path",
+        default=".",
+        help="project directory (default: cwd)",
+    )
+    add_admin.add_argument(
+        "--module",
+        default="admin_board.py",
+        help="output module filename (default: admin_board.py)",
+    )
+    add_admin.add_argument("--force", action="store_true", help="overwrite existing files")
+    add_admin.add_argument("--dry-run", action="store_true")
+
+    new_p = sub.add_parser("new", help="scaffold a new Phzyx project")
+    new_p.add_argument("name", help="project directory name")
+    new_p.add_argument(
+        "--preset",
+        default="normal",
+        choices=["minimal", "normal", "max", "full"],
+        help="feature preset (default: normal)",
+    )
+    new_p.add_argument(
+        "--layout",
+        default="flat",
+        choices=["flat", "mvc", "clean", "phzyx-app"],
+        help="folder layout (default: flat)",
+    )
+    new_p.add_argument(
+        "--path",
+        default=".",
+        help="parent directory for the new project (default: cwd)",
+    )
+    new_p.add_argument("--force", action="store_true", help="overwrite existing files")
+    new_p.add_argument("--dry-run", action="store_true")
+
+    sub.add_parser("doctor", help="security and environment checks")
+
+    mig = sub.add_parser("migrate", help="versioned SQL migrations")
+    mig_sub = mig.add_subparsers(dest="migrate_command")
+
+    m_status = mig_sub.add_parser("status", help="list applied/pending migrations")
+    m_status.add_argument("--database-url", default=None)
+    m_status.add_argument("--dir", default=None)
+
+    m_create = mig_sub.add_parser("create", help="write upgrade.sql from current plan")
+    m_create.add_argument("--database-url", default=None)
+    m_create.add_argument("--models", default=None)
+    m_create.add_argument("--dir", default=None)
+    m_create.add_argument("-m", "--message", default="auto")
+
+    m_apply = mig_sub.add_parser("apply", help="apply pending migrations")
+    m_apply.add_argument("--database-url", default=None)
+    m_apply.add_argument("--dir", default=None)
+
+    ns = parser.parse_args(args)
+    if not ns.command:
+        parser.print_help()
+        return 0
+    if ns.command == "db":
+        return _cmd_db(ns)
+    if ns.command == "migrate":
+        return _cmd_migrate(ns)
+    if ns.command == "auth":
+        return _cmd_auth(ns)
+    if ns.command == "add":
+        return _cmd_add(ns)
+    if ns.command == "new":
+        return _cmd_new(ns)
+    if ns.command == "doctor":
+        return _cmd_doctor()
+    parser.print_help()
+    return 1
+
+
+def _cmd_new(ns: argparse.Namespace) -> int:
+    from pathlib import Path
+
+    from phzyx.cli.new import new_project
+
+    try:
+        paths = new_project(
+            ns.name,
+            preset=ns.preset,
+            layout=ns.layout,
+            parent=Path(ns.path),
+            force=bool(ns.force),
+            dry_run=bool(ns.dry_run),
+        )
+    except (FileExistsError, ValueError, KeyError) as exc:
+        print(f"error: {exc}", file=sys.stderr)
+        return 2
+    verb = "would write" if ns.dry_run else "wrote"
+    for p in paths:
+        print(f"{verb} {p}")
+    if not ns.dry_run:
+        print(f"next: cd {ns.name} && uv sync && uv run uvicorn app.main:app --reload")
+        print("      phzyx doctor")
+        print("tip:  uv add phzyx-auth   # optional identity (does not block)")
+        print("      uv add phzyx-forge  # full Forge line if not already")
+    return 0
+
+
+def _cmd_doctor() -> int:
+    from phzyx.cli.doctor import doctor_exit_code, format_results, run_doctor
+
+    results = run_doctor()
+    print(format_results(results))
+    return doctor_exit_code(results)
+
+
+def _cmd_add(ns: argparse.Namespace) -> int:
+    from pathlib import Path
+
+    if ns.add_command == "auth":
+        from phzyx.cli.add_auth import add_auth
+
+        try:
+            paths = add_auth(
+                Path(ns.path),
+                module_name=ns.module,
+                force=bool(ns.force),
+                dry_run=bool(ns.dry_run),
+            )
+        except (FileExistsError, FileNotFoundError) as exc:
+            print(f"error: {exc}", file=sys.stderr)
+            return 2
+        verb = "would write" if ns.dry_run else "wrote"
+        for p in paths:
+            print(f"{verb} {p}")
+        if not ns.dry_run:
+            print("next: uv add 'phzyx-auth[fastapi]' && set PHZYX_AUTH_SECRET")
+        return 0
+    if ns.add_command == "admin":
+        from phzyx.cli.add_admin import add_admin
+
+        try:
+            paths = add_admin(
+                Path(ns.path),
+                module_name=ns.module,
+                force=bool(ns.force),
+                dry_run=bool(ns.dry_run),
+            )
+        except (FileExistsError, FileNotFoundError) as exc:
+            print(f"error: {exc}", file=sys.stderr)
+            return 2
+        verb = "would write" if ns.dry_run else "wrote"
+        for p in paths:
+            print(f"{verb} {p}")
+        if not ns.dry_run:
+            print("next: uv add phzyx-admin-fastapi && mount_admin(app, ...)")
+        return 0
+    print("error: unknown add command (try: phzyx add auth|admin)", file=sys.stderr)
+    return 1
+
+
+def _cmd_auth(ns: argparse.Namespace) -> int:
+    try:
+        from phzyx.auth.cli import create_superuser
+    except ImportError:
+        print(
+            "error: phzyx-auth not installed (uv add phzyx-auth)",
+            file=sys.stderr,
+        )
+        return 2
+    if ns.auth_command == "create-superuser":
+        uid = create_superuser(ns.email, ns.password)
+        print(f"Created superuser id={uid}")
+        return 0
+    print("error: unknown auth command", file=sys.stderr)
+    return 1
+
+
+def _cmd_db(ns: argparse.Namespace) -> int:
+    from phzyx.engine import connect, load_config, push_schema
+
+    if ns.db_command == "seed":
+        return _run_seed(ns.target)
+
+    cfg = load_config()
+    url = ns.database_url or cfg.database_url or os.environ.get("PHZYX_DATABASE_URL")
+    if not url:
+        print("error: set --database-url or PHZYX_DATABASE_URL", file=sys.stderr)
+        return 2
+
+    if ns.db_command == "status":
+        conn, adapter = connect(url)
+        try:
+            ver = adapter.detect_version(conn)
+            caps = adapter.capabilities(ver)
+            print(f"dialect: {adapter.dialect.value}")
+            print(f"version: {ver}")
+            print("capabilities:")
+            for name in sorted(caps.features):
+                print(f"  - {name}")
+            return 0
+        finally:
+            conn.close()
+
+    if ns.db_command == "push":
+        models = _load_models(ns.models or cfg.models)
+        if not models:
+            print("error: provide --models module:attr", file=sys.stderr)
+            return 2
+        conn, adapter = connect(url)
+        try:
+            if ns.tui:
+                from phzyx.engine.tui_push import push_with_tui
+
+                result = push_with_tui(
+                    models,
+                    conn,
+                    adapter,
+                    allow_production=bool(ns.allow_production),
+                )
+            else:
+                result = push_schema(
+                    models,
+                    conn,
+                    adapter,
+                    dry_run=bool(ns.dry_run),
+                    yes=bool(ns.yes),
+                    allow_production=bool(ns.allow_production),
+                )
+            print(result.plan.summary())
+            if result.production_warning:
+                print(
+                    "WARNING: production-like environment detected. "
+                    "Push is for local/dev; prefer migrate for shared/prod. "
+                    "Use --allow-production to force (not recommended).",
+                    file=sys.stderr,
+                )
+            if result.plan.empty:
+                return 0
+            if ns.tui:
+                if result.applied:
+                    print(f"applied {len(result.statements)} statement(s)")
+                return 0
+            if ns.dry_run:
+                print("(dry-run: no changes applied)")
+                return 0
+            if result.production_warning and not ns.allow_production:
+                print("error: push blocked in production-like env", file=sys.stderr)
+                return 3
+            if not ns.yes:
+                print(
+                    "error: pass --yes, --tui, or --dry-run",
+                    file=sys.stderr,
+                )
+                return 2
+            if result.applied:
+                print(f"applied {len(result.statements)} statement(s)")
+            return 0
+        finally:
+            conn.close()
+
+    if ns.db_command == "lint":
+        from phzyx.engine import build_plan, connect, lint_plan
+        from phzyx.schema import build_manifest
+
+        models = _load_models(ns.models or cfg.models)
+        if not models:
+            print("error: provide --models module:attr", file=sys.stderr)
+            return 2
+        conn, adapter = connect(url)
+        try:
+            plan = build_plan(build_manifest(models), adapter.introspect(conn))
+            result = lint_plan(plan)
+            print(result.summary())
+            return 0 if result.ok else 1
+        finally:
+            conn.close()
+
+    print("error: unknown db command", file=sys.stderr)
+    return 1
+
+
+def _run_seed(spec: str) -> int:
+    if ":" not in spec:
+        print("error: seed target must be module:callable", file=sys.stderr)
+        return 2
+    mod_name, attr = spec.split(":", 1)
+    mod = importlib.import_module(mod_name)
+    fn = getattr(mod, attr)
+    fn()
+    print(f"seeded via {spec}")
+    return 0
+
+
+def _cmd_migrate(ns: argparse.Namespace) -> int:
+    from phzyx.engine import (
+        build_plan,
+        connect,
+        create_migration,
+        load_config,
+        migrate_apply,
+        migrate_status,
+    )
+    from phzyx.schema import build_manifest
+
+    cfg = load_config()
+    url = ns.database_url or cfg.database_url or os.environ.get("PHZYX_DATABASE_URL")
+    mig_dir = ns.dir or cfg.migrations_dir
+
+    if ns.migrate_command == "status":
+        if not url:
+            print("error: set --database-url or PHZYX_DATABASE_URL", file=sys.stderr)
+            return 2
+        conn, _adapter = connect(url)
+        try:
+            st = migrate_status(conn, mig_dir)
+            print("applied:")
+            for v in st.applied or ["(none)"]:
+                print(f"  - {v}")
+            print("pending:")
+            for v in st.pending or ["(none)"]:
+                print(f"  - {v}")
+            return 0
+        finally:
+            conn.close()
+
+    if ns.migrate_command == "create":
+        if not url:
+            print("error: set --database-url or PHZYX_DATABASE_URL", file=sys.stderr)
+            return 2
+        models = _load_models(ns.models or cfg.models)
+        if not models:
+            print("error: provide --models module:attr", file=sys.stderr)
+            return 2
+        conn, adapter = connect(url)
+        try:
+            desired = build_manifest(models)
+            live = adapter.introspect(conn)
+            plan = build_plan(desired, live)
+            print(plan.summary())
+            mig = create_migration(plan, mig_dir, dialect=adapter.dialect, name=ns.message)
+            print(f"wrote {mig.path}")
+            return 0
+        finally:
+            conn.close()
+
+    if ns.migrate_command == "apply":
+        if not url:
+            print("error: set --database-url or PHZYX_DATABASE_URL", file=sys.stderr)
+            return 2
+        conn, adapter = connect(url)
+        try:
+            applied = migrate_apply(conn, mig_dir, dialect=adapter.dialect)
+            if not applied:
+                print("no pending migrations")
+            else:
+                for v in applied:
+                    print(f"applied {v}")
+            return 0
+        finally:
+            conn.close()
+
+    print("error: unknown migrate command", file=sys.stderr)
+    return 1
+
+
+def _load_models(spec: str | None) -> list[Any]:
+    """Load models from ``module:attribute`` where attribute is a list/tuple of models."""
+    if not spec:
+        return []
+    if ":" not in spec:
+        raise SystemExit("models spec must be module:attr")
+    mod_name, attr = spec.split(":", 1)
+    mod = importlib.import_module(mod_name)
+    obj = getattr(mod, attr)
+    if isinstance(obj, (list, tuple)):
+        return list(obj)
+    return [obj]

@@ -1,0 +1,38 @@
+# OrbStack / Docker Compose — Phzyx AdminBoard sample
+#
+#   cd <repo-root>
+#   docker compose -f examples/adminboard_live/docker-compose.yml up --build
+#
+# Open: http://localhost:9100/admin/
+# Login (in-app): admin / phzyx
+
+services:
+  adminboard:
+    build:
+      context: ../..
+      dockerfile: examples/adminboard_live/Dockerfile
+    image: phzyx-adminboard-live:0.1.0
+    container_name: phzyx-adminboard
+    ports:
+      - "9100:8000"
+    environment:
+      PHZYX_ADMIN_USER: admin
+      PHZYX_ADMIN_PASSWORD: phzyx
+      PHZYX_ADMIN_THEME: stellar-dark
+      PHZYX_DEMO_DB: /data/demo.db
+      PHZYX_DEMO_MEDIA: /data/media
+      # set to 1 once to wipe SQLite + rewrite media seed (then set back to 0)
+      # seed also auto-reseeds when SEED_SCHEMA_VERSION changes (missing marker file)
+      PHZYX_DEMO_RESEED: ${PHZYX_DEMO_RESEED:-0}
+    volumes:
+      - phzyx_demo_data:/data
+    healthcheck:
+      test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://127.0.0.1:8000/health')"]
+      interval: 5s
+      timeout: 3s
+      retries: 10
+      start_period: 10s
+    restart: unless-stopped
+
+volumes:
+  phzyx_demo_data:

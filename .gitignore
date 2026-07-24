@@ -1,0 +1,86 @@
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.Python
+*.egg-info/
+.eggs/
+dist/
+!packages/admin/web/dist/
+!packages/admin/web/dist/**
+build/
+*.egg
+
+# Virtual environments
+.venv/
+venv/
+ENV/
+examples/**/.venv/
+
+# uv / packaging
+# uv.lock is committed for reproducible workspace installs
+
+# Testing / coverage
+.pytest_cache/
+.coverage
+.coverage.*
+coverage.xml
+coverage.json
+htmlcov/
+.mypy_cache/
+.ruff_cache/
+.dmypy.json
+dmypy.json
+.pytype/
+.pyre/
+
+# Type checkers / IDE
+.idea/
+.vscode/
+*.swp
+*.swo
+*~
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Env / secrets
+.env
+.env.*
+!.env.example
+
+# Node (AdminBoard SPA + sites)
+node_modules/
+.pnpm-store/
+packages/admin/web/node_modules/
+# Built SPA is committed for offline wheel/demo convenience (M4);
+# rebuild via packages/admin/web `npm run build` when sources change.
+# packages/admin/web/dist/
+
+# Local tooling
+.justfile.local
+packages/admin/web/node_modules/
+dist-release/
+
+# Local demo SQLite
+examples/**/*.db
+examples/**/media/
+
+
+# Admin web tooling
+packages/admin/web/test-results/
+packages/admin/web/playwright-report/
+packages/admin/web/blob-report/
+
+# Private: research, design plans, AI agent helpers (local only — do not push)
+# Files remain on disk; they are untracked for remotes.
+research/
+AGENTS.md
+AGENT_TO_AGENT.md
+docs/agent-rules.md
+.cursor/
+.claude/
+.grok/
+

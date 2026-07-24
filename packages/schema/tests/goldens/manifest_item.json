@@ -1,0 +1,72 @@
+{
+  "manifest_version": 1,
+  "meta": {},
+  "tables": [
+    {
+      "columns": [
+        {
+          "admin_exclude": false,
+          "admin_hidden": false,
+          "admin_readonly": false,
+          "archive_on_remove": null,
+          "db_type": null,
+          "file_kind": null,
+          "foreign_key": null,
+          "index": false,
+          "logical_type": "int",
+          "name": "id",
+          "nullable": false,
+          "on_delete": null,
+          "primary_key": true,
+          "renamed_from": null,
+          "server_default": null,
+          "unique": false
+        },
+        {
+          "admin_exclude": false,
+          "admin_hidden": false,
+          "admin_readonly": false,
+          "archive_on_remove": null,
+          "db_type": null,
+          "file_kind": null,
+          "foreign_key": null,
+          "index": false,
+          "logical_type": "str",
+          "name": "name",
+          "nullable": false,
+          "on_delete": null,
+          "primary_key": false,
+          "renamed_from": null,
+          "server_default": null,
+          "unique": false
+        },
+        {
+          "admin_exclude": false,
+          "admin_hidden": false,
+          "admin_readonly": false,
+          "archive_on_remove": null,
+          "db_type": null,
+          "file_kind": null,
+          "foreign_key": null,
+          "index": false,
+          "logical_type": "str",
+          "name": "renamed",
+          "nullable": false,
+          "on_delete": null,
+          "primary_key": false,
+          "renamed_from": "title",
+          "server_default": null,
+          "unique": false
+        }
+      ],
+      "constraints": [],
+      "indexes": [],
+      "model_qualname": "test_manifest.test_manifest_json_roundtrip_and_golden.<locals>.Item",
+      "name": "items",
+      "primary_key": [
+        "id"
+      ],
+      "schema_name": null
+    }
+  ]
+}

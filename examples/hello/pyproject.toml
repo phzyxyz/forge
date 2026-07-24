@@ -1,0 +1,17 @@
+[project]
+name = "phzyx-example-hello"
+version = "0.0.0"
+description = "Minimal FastAPI app showing Phzyx package wiring (stub)"
+requires-python = ">=3.11"
+dependencies = [
+  "phzyx-admin-fastapi",
+  "phzyx-schema",
+  "uvicorn[standard]>=0.32",
+]
+
+[tool.uv]
+package = false
+
+[tool.uv.sources]
+phzyx-admin-fastapi = { path = "../../packages/admin-fastapi", editable = true }
+phzyx-schema = { path = "../../packages/schema", editable = true }

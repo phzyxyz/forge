@@ -1,0 +1,146 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="stellar-dark">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Phzyx — UI shell preview</title>
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/geist@1.3.1/dist/fonts/geist-sans/style.min.css" />
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/geist@1.3.1/dist/fonts/geist-mono/style.min.css" />
+  <link rel="stylesheet" href="../tokens.css" />
+  <style>
+    * { box-sizing: border-box; margin: 0; }
+    body { min-height: 100vh; }
+    .brand-row { display: flex; align-items: center; gap: 10px; font-weight: 600; letter-spacing: -0.03em; }
+    .brand-row img { width: 28px; height: 28px; border-radius: 7px; }
+    .muted { color: var(--phzyx-text-secondary); font-size: var(--phzyx-fs-sm); }
+    .search {
+      flex: 1;
+      max-width: 320px;
+      margin: 0 auto;
+    }
+    .stack { display: flex; flex-direction: column; gap: 6px; }
+    .section-label {
+      font-size: var(--phzyx-fs-xs);
+      text-transform: uppercase;
+      letter-spacing: 0.06em;
+      color: var(--phzyx-text-tertiary);
+      padding: 12px 10px 6px;
+    }
+    .mono { font-family: var(--phzyx-font-mono); font-size: 12px; color: var(--phzyx-text-secondary); }
+    .theme-switch { display: flex; gap: 6px; }
+    .theme-switch button {
+      font-size: 11px;
+      padding: 4px 8px;
+      border-radius: 999px;
+      border: 0.5px solid var(--phzyx-border-subtle);
+      background: transparent;
+      color: var(--phzyx-text-secondary);
+      cursor: pointer;
+      font-family: inherit;
+    }
+    .theme-switch button[aria-pressed="true"] {
+      background: var(--phzyx-bg-active);
+      color: var(--phzyx-text-primary);
+    }
+  </style>
+</head>
+<body class="phzyx-app-shell">
+  <div class="phzyx-window" role="application" aria-label="AdminBoard preview">
+    <header class="phzyx-titlebar">
+      <div class="phzyx-traffic" aria-hidden="true">
+        <span class="close"></span><span class="min"></span><span class="max"></span>
+      </div>
+      <div class="brand-row">
+        <img src="../icons/phzyx-app-icon-64.png" alt="" />
+        <span>AdminBoard</span>
+      </div>
+      <div class="search">
+        <input class="phzyx-input" type="search" placeholder="Search resources…" />
+      </div>
+      <div class="theme-switch" role="group" aria-label="Primary themes">
+        <button type="button" data-theme-set="magical-white" aria-pressed="false" title="Primary enterprise light">White</button>
+        <button type="button" data-theme-set="stellar-dark" aria-pressed="true" title="Primary enterprise dark">Dark</button>
+        <button type="button" data-theme-set="system-ambient" aria-pressed="false" title="Optional: follow OS">Ambient</button>
+      </div>
+    </header>
+
+    <aside class="phzyx-sidebar">
+      <div class="section-label">Data</div>
+      <nav class="stack">
+        <a class="phzyx-nav-item" href="#" aria-current="page">Users</a>
+        <a class="phzyx-nav-item" href="#">Organizations</a>
+        <a class="phzyx-nav-item" href="#">API keys</a>
+      </nav>
+      <div class="section-label">System</div>
+      <nav class="stack">
+        <a class="phzyx-nav-item" href="#">Migrations</a>
+        <a class="phzyx-nav-item" href="#">Settings</a>
+      </nav>
+    </aside>
+
+    <main class="phzyx-content">
+      <div class="phzyx-toolbar">
+        <div>
+          <h1 class="phzyx-display" style="font-size: var(--phzyx-fs-xl)">Users</h1>
+          <p class="muted">Pydantic model · live schema in sync</p>
+        </div>
+        <div style="display:flex; gap:8px;">
+          <button type="button" class="phzyx-btn">Export</button>
+          <button type="button" class="phzyx-btn phzyx-btn-primary">New user</button>
+        </div>
+      </div>
+
+      <div class="phzyx-card" style="padding: 0; overflow: hidden;">
+        <table class="phzyx-table">
+          <thead>
+            <tr>
+              <th>ID</th>
+              <th>Email</th>
+              <th>Status</th>
+              <th>Updated</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr>
+              <td class="mono">1042</td>
+              <td>ada@phzyx.xyz</td>
+              <td>Active</td>
+              <td class="muted">2 min ago</td>
+            </tr>
+            <tr>
+              <td class="mono">1043</td>
+              <td>linus@phzyx.xyz</td>
+              <td>Active</td>
+              <td class="muted">1 hr ago</td>
+            </tr>
+            <tr>
+              <td class="mono">1044</td>
+              <td>grace@phzyx.xyz</td>
+              <td>Invited</td>
+              <td class="muted">Yesterday</td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+
+      <p class="muted" style="margin-top: 20px; max-width: 52ch;">
+        Preview shell: Geist + Phzyx tokens + macOS-like window (glass, hairlines, compact 13px chrome).
+        Not a default component-library skin.
+      </p>
+    </main>
+  </div>
+
+  <script>
+    const root = document.documentElement;
+    document.querySelectorAll("[data-theme-set]").forEach((btn) => {
+      btn.addEventListener("click", () => {
+        const t = btn.getAttribute("data-theme-set");
+        root.setAttribute("data-theme", t);
+        document.querySelectorAll("[data-theme-set]").forEach((b) => {
+          b.setAttribute("aria-pressed", b === btn ? "true" : "false");
+        });
+      });
+    });
+  </script>
+</body>
+</html>

@@ -1,0 +1,89 @@
+/* Phzyx AdminBoard tokens — Stellar Dark default; Magical White via data-theme */
+
+:root {
+  --phzyx-cyan-300: #67e8f9;
+  --phzyx-cyan-400: #22d3ee;
+  --phzyx-cyan-500: #06b6d4;
+  --phzyx-violet-400: #a78bfa;
+  --phzyx-violet-500: #8b5cf6;
+  --phzyx-green-400: #4ade80;
+  --phzyx-amber-400: #fbbf24;
+  --phzyx-danger: #fb7185;
+  --phzyx-danger-soft: color-mix(in oklab, #fb7185 18%, transparent);
+
+  --phzyx-accent: var(--phzyx-cyan-400);
+  --phzyx-accent-soft: color-mix(in oklab, var(--phzyx-cyan-400) 16%, transparent);
+  --phzyx-gradient-brand: linear-gradient(135deg, #67e8f9 0%, #38bdf8 42%, #818cf8 100%);
+
+  --phzyx-bg-app: #0b0d12;
+  --phzyx-bg-sidebar: rgba(16, 18, 24, 0.92);
+  --phzyx-bg-window: rgba(28, 30, 38, 0.88);
+  --phzyx-bg-elevated: rgba(42, 44, 54, 0.95);
+  --phzyx-bg-hover: rgba(255, 255, 255, 0.05);
+  --phzyx-bg-active: rgba(255, 255, 255, 0.09);
+  --phzyx-bg-input: rgba(0, 0, 0, 0.28);
+  --phzyx-bg-overlay: rgba(0, 0, 0, 0.55);
+
+  --phzyx-border: rgba(255, 255, 255, 0.09);
+  --phzyx-border-strong: rgba(255, 255, 255, 0.16);
+
+  --phzyx-text: rgba(255, 255, 255, 0.94);
+  --phzyx-text-secondary: rgba(255, 255, 255, 0.62);
+  --phzyx-text-tertiary: rgba(255, 255, 255, 0.4);
+
+  --phzyx-font: "Geist", "Inter", ui-sans-serif, system-ui, -apple-system, sans-serif;
+  --phzyx-mono: "Geist Mono", "IBM Plex Mono", ui-monospace, Menlo, monospace;
+
+  --phzyx-radius-sm: 6px;
+  --phzyx-radius-md: 10px;
+  --phzyx-radius-lg: 14px;
+  --phzyx-radius-xl: 20px;
+  --phzyx-radius-pill: 999px;
+
+  --phzyx-sidebar-w: 248px;
+  --phzyx-sidebar-collapsed: 72px;
+  --phzyx-topbar-h: 56px;
+  --phzyx-drawer-w: 440px;
+
+  --phzyx-shadow-sm: 0 4px 16px rgba(0, 0, 0, 0.25);
+  --phzyx-shadow-lg: 0 24px 80px rgba(0, 0, 0, 0.45), 0 0 0 0.5px var(--phzyx-border);
+  --phzyx-blur: 28px;
+
+  --phzyx-row-h: 44px;
+  --phzyx-row-h-compact: 34px;
+  color-scheme: dark;
+}
+
+html[data-theme="magical-white"] {
+  --phzyx-bg-app: #f0f1f5;
+  --phzyx-bg-sidebar: rgba(255, 255, 255, 0.92);
+  --phzyx-bg-window: #ffffff;
+  --phzyx-bg-elevated: #ffffff;
+  --phzyx-bg-hover: rgba(0, 0, 0, 0.04);
+  --phzyx-bg-active: rgba(0, 0, 0, 0.07);
+  --phzyx-bg-input: rgba(0, 0, 0, 0.04);
+  --phzyx-bg-overlay: rgba(15, 18, 28, 0.4);
+  --phzyx-border: rgba(0, 0, 0, 0.08);
+  --phzyx-border-strong: rgba(0, 0, 0, 0.14);
+  --phzyx-text: #1c1c1e;
+  --phzyx-text-secondary: rgba(60, 60, 67, 0.72);
+  --phzyx-text-tertiary: rgba(60, 60, 67, 0.45);
+  --phzyx-danger: #e11d48;
+  --phzyx-danger-soft: color-mix(in oklab, #e11d48 12%, transparent);
+  --phzyx-shadow-sm: 0 4px 16px rgba(0, 0, 0, 0.06);
+  --phzyx-shadow-lg: 0 24px 60px rgba(0, 0, 0, 0.12), 0 0 0 0.5px var(--phzyx-border);
+  color-scheme: light;
+}
+
+html.reduced-transparency {
+  --phzyx-bg-sidebar: #12141a;
+  --phzyx-bg-window: #1a1c24;
+  --phzyx-bg-elevated: #252832;
+  --phzyx-blur: 0px;
+}
+
+html[data-theme="magical-white"].reduced-transparency {
+  --phzyx-bg-sidebar: #f6f6f8;
+  --phzyx-bg-window: #ffffff;
+  --phzyx-bg-elevated: #ffffff;
+}

@@ -1,0 +1,97 @@
+"""Phzyx schema language — Pydantic models to Manifest IR and CREATE DDL."""
+
+from phzyx.schema.ddl import (
+    apply_manifest_sqlite,
+    apply_sql,
+    quote_ident,
+    render_create_index,
+    render_create_table,
+    render_manifest_ddl,
+    render_table_ddl,
+)
+from phzyx.schema.errors import SchemaError
+from phzyx.schema.field import (
+    PHZYX_JSON_SCHEMA_KEY,
+    ColumnMeta,
+    Field,
+    FileKind,
+    OnDelete,
+    get_column_meta,
+)
+from phzyx.schema.manifest import (
+    MANIFEST_VERSION,
+    ColumnDef,
+    ConstraintDef,
+    IndexDef,
+    Manifest,
+    TableDef,
+    build_manifest,
+    manifest_from_dict,
+    manifest_from_json,
+    manifest_to_dict,
+    manifest_to_json,
+)
+from phzyx.schema.model import Model, TableInfo, camel_to_snake, get_table_info
+from phzyx.schema.registry import (
+    ModelRegistry,
+    RegistryError,
+    get_registry,
+    register_model,
+    unregister_model,
+)
+from phzyx.schema.types import (
+    MYSQL_LIMITS,
+    MYSQL_TYPES,
+    SQLITE_LIMITS,
+    Dialect,
+    LogicalType,
+    infer_logical_type,
+    physical_type,
+)
+
+__version__ = "0.1.0"
+
+__all__ = [
+    "MANIFEST_VERSION",
+    "MYSQL_LIMITS",
+    "MYSQL_TYPES",
+    "PHZYX_JSON_SCHEMA_KEY",
+    "SQLITE_LIMITS",
+    "ColumnDef",
+    "ColumnMeta",
+    "ConstraintDef",
+    "Dialect",
+    "Field",
+    "FileKind",
+    "IndexDef",
+    "LogicalType",
+    "Manifest",
+    "Model",
+    "ModelRegistry",
+    "OnDelete",
+    "RegistryError",
+    "SchemaError",
+    "TableDef",
+    "TableInfo",
+    "__version__",
+    "apply_manifest_sqlite",
+    "apply_sql",
+    "build_manifest",
+    "camel_to_snake",
+    "get_column_meta",
+    "get_registry",
+    "get_table_info",
+    "infer_logical_type",
+    "manifest_from_dict",
+    "manifest_from_json",
+    "manifest_to_dict",
+    "manifest_to_json",
+    "physical_type",
+    "quote_ident",
+    "register_model",
+    "render_create_index",
+    "render_create_table",
+    "render_manifest_ddl",
+    "render_table_ddl",
+    "unregister_model",
+]

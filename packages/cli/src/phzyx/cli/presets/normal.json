@@ -1,0 +1,15 @@
+{
+  "description": "minimal + phzyx-auth cookie session recipe",
+  "packages": [
+    "phzyx-schema",
+    "phzyx-orm",
+    "phzyx-engine",
+    "phzyx-auth[fastapi]",
+    "fastapi",
+    "uvicorn[standard]>=0.32"
+  ],
+  "auth": true,
+  "admin": false,
+  "docker": false,
+  "env_example": true
+}

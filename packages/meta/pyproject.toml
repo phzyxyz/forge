@@ -1,0 +1,36 @@
+[project]
+name = "phzyx"
+version = "0.1.0"
+description = "Phzyx — ecosystem install-all (all published products; today ≈ Forge stack)"
+readme = "README.md"
+requires-python = ">=3.11"
+license = "MIT"
+authors = [{ name = "Athul Nandaswaroop" }]
+dependencies = [
+  "phzyx-schema==0.1.0",
+  "phzyx-engine==0.1.0",
+  "phzyx-orm==0.1.0",
+  "phzyx-admin==0.1.0",
+  "phzyx-admin-fastapi==0.1.0",
+  "phzyx-cli==0.1.0",
+]
+
+# Ecosystem meta: add phzyx-pulse (etc.) when those packages publish.
+# For Forge-only installs use meta package phzyx-forge.
+# Optional batteries (auth, cache, litestar) stay modular — not forced here.
+
+[tool.uv.sources]
+phzyx-schema = { workspace = true }
+phzyx-engine = { workspace = true }
+phzyx-orm = { workspace = true }
+phzyx-admin = { workspace = true }
+phzyx-admin-fastapi = { workspace = true }
+phzyx-cli = { workspace = true }
+
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[tool.hatch.build.targets.wheel]
+# Dependency-only meta package (no modules). Empty wheel is intentional.
+bypass-selection = true

@@ -1,0 +1,37 @@
+[project]
+name = "phzyx-auth"
+version = "0.1.0"
+description = "Phzyx Auth — secure-by-default identity, sessions, JWT, API keys, RBAC"
+readme = "README.md"
+requires-python = ">=3.11"
+license = "MIT"
+authors = [{ name = "Athul Nandaswaroop" }]
+dependencies = [
+  "phzyx-schema",
+  "phzyx-orm",
+  "pydantic>=2",
+  "argon2-cffi>=23",
+  "PyJWT>=2.8",
+]
+
+[project.optional-dependencies]
+redis = ["redis>=5"]
+oauth = ["authlib>=1.3", "httpx>=0.27"]
+mfa = ["pyotp>=2.9"]
+webauthn = ["webauthn>=2.0"]
+fastapi = ["fastapi>=0.115"]
+litestar = ["litestar>=2.12"]
+
+[project.scripts]
+phzyx-auth = "phzyx.auth.cli:main"
+
+[tool.uv.sources]
+phzyx-schema = { workspace = true }
+phzyx-orm = { workspace = true }
+
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[tool.hatch.build.targets.wheel]
+packages = ["src/phzyx"]

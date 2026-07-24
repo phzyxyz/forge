@@ -1,0 +1,34 @@
+[project]
+name = "phzyx-forge"
+version = "0.1.0"
+description = "Phzyx Forge — schema, failsafe migrations, ORM, AdminBoard, CLI (coordinated pins)"
+readme = "README.md"
+requires-python = ">=3.11"
+license = "MIT"
+authors = [{ name = "Athul Nandaswaroop" }]
+dependencies = [
+  "phzyx-schema==0.1.0",
+  "phzyx-engine==0.1.0",
+  "phzyx-orm==0.1.0",
+  "phzyx-admin==0.1.0",
+  "phzyx-admin-fastapi==0.1.0",
+  "phzyx-cli==0.1.0",
+]
+
+# Optional batteries (not part of Forge meta): phzyx-auth, phzyx-cache, litestar adapter.
+
+[tool.uv.sources]
+phzyx-schema = { workspace = true }
+phzyx-engine = { workspace = true }
+phzyx-orm = { workspace = true }
+phzyx-admin = { workspace = true }
+phzyx-admin-fastapi = { workspace = true }
+phzyx-cli = { workspace = true }
+
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[tool.hatch.build.targets.wheel]
+# Dependency-only meta package (no modules). Empty wheel is intentional.
+bypass-selection = true

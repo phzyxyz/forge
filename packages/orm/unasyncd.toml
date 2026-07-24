@@ -1,0 +1,10 @@
+# unasyncd configuration placeholder (M3).
+# Sync Session is hand-mirrored today; CI enforces public method parity in tests.
+# When enabling generation:
+#   source = "src/phzyx/orm/session_async.py"
+#   target = "src/phzyx/orm/session_sync.py"
+#   add_suffix / renames: AsyncSession -> Session, etc.
+
+[tool.unasyncd]
+enabled = false
+check_mode_note = "Use packages/orm/tests/test_files_and_dual_api.py::test_async_sync_public_methods_match"

@@ -1,0 +1,16 @@
+{
+  "description": "max + docker-compose + .env.example extras",
+  "packages": [
+    "phzyx-schema",
+    "phzyx-orm",
+    "phzyx-engine",
+    "phzyx-auth[fastapi]",
+    "phzyx-admin-fastapi",
+    "fastapi",
+    "uvicorn[standard]>=0.32"
+  ],
+  "auth": true,
+  "admin": true,
+  "docker": true,
+  "env_example": true
+}

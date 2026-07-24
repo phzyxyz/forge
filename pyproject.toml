@@ -1,0 +1,131 @@
+[project]
+name = "phzyx-workspace"
+version = "0.0.0"
+description = "Phzyx monorepo workspace hub (not published)"
+requires-python = ">=3.11"
+dependencies = []
+
+[tool.uv]
+package = false
+
+[tool.uv.workspace]
+members = ["packages/*"]
+
+[dependency-groups]
+dev = [
+  "pytest>=8",
+  "pytest-asyncio>=0.24",
+  "ruff>=0.8",
+  "pre-commit>=4",
+  "pyright>=1.1",  # D14: primary typechecker
+  "aiosqlite>=0.20",  # phzyx-orm[sqlite] for async session tests
+  "httpx>=0.27",  # HTTP client
+  "httpx2>=0.1",  # Starlette TestClient
+  "openpyxl>=3.1",  # Excel export (M5)
+  "hypothesis>=6",  # property tests (M6)
+  "pytest-cov>=7.1.0",
+  "coverage>=7.15.2",
+]
+
+[tool.pyright]
+include = ["packages", "tests", "examples"]
+exclude = ["**/__pycache__", "**/.venv", "brand", "research"]
+extraPaths = [
+  "packages/schema/src",
+  "packages/engine/src",
+  "packages/orm/src",
+  "packages/admin/src",
+  "packages/admin-fastapi/src",
+  "packages/auth/src",
+  "packages/cli/src",
+  "examples/hello",
+]
+# engine/cli modules resolved via editable installs + paths above
+pythonVersion = "3.11"
+typeCheckingMode = "basic"
+venvPath = "."
+venv = ".venv"
+reportMissingImports = true
+reportMissingTypeStubs = false
+
+[tool.pytest.ini_options]
+asyncio_mode = "auto"
+asyncio_default_fixture_loop_scope = "function"
+testpaths = ["packages", "tests", "examples"]
+python_files = ["test_*.py"]
+python_functions = ["test_*"]
+addopts = [
+  "-ra",
+  "--strict-markers",
+  "--strict-config",
+]
+filterwarnings = [
+  "error",
+]
+markers = [
+  "unit: pure unit, no external services",
+  "integration: needs DB or multi-package",
+  "postgres: requires PostgreSQL",
+  "sqlite: SQLite file/memory",
+  "slow: long-running",
+  "security: authz / path / mime",
+  "packaging: install/import layout checks",
+  "safety: non-regression data-loss and authz invariants",
+]
+
+# Coverage — product packages only (omit tests/SPA). Ratchet fail_under: 75 → 80 → 90 → …
+# Baseline ~77% line (2026-07); do not game by omitting weak modules — raise with real tests.
+[tool.coverage.run]
+branch = false
+source = ["packages"]
+omit = [
+  "*/tests/*",
+  "*/test_*.py",
+  "*/conftest.py",
+  "*/web/*",
+  "*/__pycache__/*",
+  "*/.venv/*",
+]
+
+[tool.coverage.report]
+fail_under = 75
+precision = 1
+show_missing = true
+skip_empty = true
+exclude_also = [
+  "pragma: no cover",
+  "if TYPE_CHECKING:",
+  "if typing.TYPE_CHECKING:",
+  "raise NotImplementedError",
+  "\\.\\.\\.",
+]
+
+[tool.coverage.html]
+directory = "htmlcov"
+
+[tool.coverage.xml]
+output = "coverage.xml"
+
+[tool.ruff]
+target-version = "py311"
+line-length = 100
+src = ["packages", "tests"]
+
+[tool.ruff.lint]
+select = [
+  "E",   # pycodestyle errors
+  "W",   # pycodestyle warnings
+  "F",   # pyflakes
+  "I",   # isort
+  "UP",  # pyupgrade
+  "B",   # bugbear
+  "SIM", # simplify
+]
+
+[tool.ruff.lint.per-file-ignores]
+"**/tests/**" = ["S101"]
+
+[tool.ruff.format]
+quote-style = "double"
+indent-style = "space"
+line-ending = "auto"

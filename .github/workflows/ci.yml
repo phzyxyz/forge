@@ -1,0 +1,207 @@
+# Forge CI — Python workspace + AdminBoard SPA/demo gates
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+
+concurrency:
+  group: ci-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+env:
+  UV_FROZEN: "1"
+
+jobs:
+  lint:
+    name: lint
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Install uv
+        uses: astral-sh/setup-uv@v6
+        with:
+          enable-cache: true
+          cache-dependency-glob: |
+            uv.lock
+            **/pyproject.toml
+          cache-suffix: lint-py312
+      - name: Set up Python
+        run: uv python install 3.12
+      - name: Sync dev tools
+        run: uv sync --all-packages --group dev
+      - name: Ruff check
+        run: uv run ruff check packages tests
+      - name: Ruff format
+        run: uv run ruff format --check packages tests
+
+  typecheck:
+    name: typecheck
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Install uv
+        uses: astral-sh/setup-uv@v6
+        with:
+          enable-cache: true
+          cache-dependency-glob: |
+            uv.lock
+            **/pyproject.toml
+          cache-suffix: typecheck-py312
+      - name: Set up Python
+        run: uv python install 3.12
+      - name: Sync (with pyright)
+        run: uv sync --all-packages --group dev
+      - name: Pyright
+        run: uv run pyright
+
+  test:
+    name: test (py${{ matrix.python-version }})
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        python-version: ["3.11", "3.12", "3.13"]
+    steps:
+      - uses: actions/checkout@v4
+      - name: Install uv
+        uses: astral-sh/setup-uv@v6
+        with:
+          enable-cache: true
+          cache-dependency-glob: |
+            uv.lock
+            **/pyproject.toml
+          cache-suffix: test-py${{ matrix.python-version }}
+          python-version: ${{ matrix.python-version }}
+      - name: Sync workspace
+        run: uv sync --all-packages --group dev
+      - name: Pytest (unit + packaging + default)
+        run: uv run pytest -q --tb=short
+
+
+  coverage:
+    name: coverage (fail-under 75)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Install uv
+        uses: astral-sh/setup-uv@v6
+        with:
+          enable-cache: true
+          cache-dependency-glob: |
+            uv.lock
+            **/pyproject.toml
+          cache-suffix: coverage-py312
+      - name: Set up Python
+        run: uv python install 3.12
+      - name: Sync workspace
+        run: uv sync --all-packages --group dev
+      - name: Pytest with coverage gate
+        run: |
+          uv run pytest -q --tb=short \
+            --cov \
+            --cov-report=term-missing:skip-covered \
+            --cov-report=xml \
+            --cov-fail-under=75
+      - name: Upload coverage.xml
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: coverage-xml
+          path: coverage.xml
+          if-no-files-found: ignore
+
+  packaging:
+    name: packaging
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Install uv
+        uses: astral-sh/setup-uv@v6
+        with:
+          enable-cache: true
+          cache-dependency-glob: |
+            uv.lock
+            **/pyproject.toml
+          cache-suffix: packaging-py312
+      - name: Set up Python
+        run: uv python install 3.12
+      - name: Sync workspace
+        run: uv sync --all-packages --group dev
+      - name: Packaging tests
+        run: uv run pytest -q tests/packaging -m packaging --tb=short
+      - name: Namespace root guard
+        run: |
+          if find packages -path '*/src/phzyx/__init__.py' | grep -q .; then
+            echo "Forbidden: phzyx/__init__.py under packages/*/src"
+            find packages -path '*/src/phzyx/__init__.py'
+            exit 1
+          fi
+
+
+  adminboard:
+    name: adminboard (diamond)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Install uv
+        uses: astral-sh/setup-uv@v6
+        with:
+          enable-cache: true
+          cache-dependency-glob: |
+            uv.lock
+            **/pyproject.toml
+          cache-suffix: adminboard-py312
+      - name: Set up Python
+        run: uv python install 3.12
+      - name: Sync workspace
+        run: uv sync --all-packages --group dev
+      - name: Diamond demo invariants (pytest)
+        run: uv run pytest -q tests/demo -m unit --tb=short
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+      - name: Setup pnpm
+        uses: pnpm/action-setup@v4
+        with:
+          version: 9
+      - name: Admin SPA pnpm check (lint + unit + build)
+        working-directory: packages/admin/web
+        run: |
+          pnpm install --frozen-lockfile
+          pnpm check
+      - name: Build and start live demo
+        run: docker compose -f examples/adminboard_live/docker-compose.yml up --build -d
+      - name: Wait for health
+        run: |
+          for i in $(seq 1 30); do
+            if curl -sf http://127.0.0.1:9100/health >/dev/null; then
+              echo "healthy"
+              exit 0
+            fi
+            sleep 2
+          done
+          docker compose -f examples/adminboard_live/docker-compose.yml logs
+          exit 1
+      - name: Assert 401 has no WWW-Authenticate
+        run: |
+          set -euo pipefail
+          hdrs=$(curl -sS -D- -o /dev/null http://127.0.0.1:9100/admin/api/v1/meta)
+          echo "$hdrs" | head -20
+          echo "$hdrs" | grep -qi '^HTTP/.* 401'
+          if echo "$hdrs" | grep -qi '^www-authenticate:'; then
+            echo "FAIL: WWW-Authenticate present (breaks SPA login)"
+            exit 1
+          fi
+          echo "D1.1 header assert OK"
+      - name: Install Playwright + e2e
+        working-directory: packages/admin/web
+        run: |
+          pnpm exec playwright install chromium --with-deps
+          ADMINBOARD_BASE_URL=http://127.0.0.1:9100 pnpm e2e
+      - name: Tear down demo
+        if: always()
+        run: docker compose -f examples/adminboard_live/docker-compose.yml down -v

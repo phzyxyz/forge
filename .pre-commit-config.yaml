@@ -1,0 +1,12 @@
+# Pre-commit for Phzyx (ruff lint + format).
+# This repo uses: git config core.hooksPath .githooks
+# so install is just ensuring hooks are executable + `uv sync` (no `pre-commit install`).
+# Trailer bans: .githooks/commit-msg
+
+repos:
+  - repo: https://github.com/astral-sh/ruff-pre-commit
+    rev: v0.15.22
+    hooks:
+      - id: ruff
+        args: [--fix]
+      - id: ruff-format

@@ -1,0 +1,14 @@
+{
+  "description": "schema + orm + FastAPI hello (learning / libraries)",
+  "packages": [
+    "phzyx-schema",
+    "phzyx-orm",
+    "phzyx-engine",
+    "fastapi",
+    "uvicorn[standard]>=0.32"
+  ],
+  "auth": false,
+  "admin": false,
+  "docker": false,
+  "env_example": true
+}
