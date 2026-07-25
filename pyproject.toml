@@ -72,7 +72,7 @@ addopts = [
 ]
 filterwarnings = [
   "error",
-  # Python 3.13: unclosed sqlite connections surface as unraisable ResourceWarnings
+  # Python 3.13+: unclosed sqlite connections surface as unraisable ResourceWarnings
   # during fixture teardown; treat as noise until sessions close eagerly everywhere.
   "ignore::ResourceWarning",
   "ignore::pytest.PytestUnraisableExceptionWarning",
