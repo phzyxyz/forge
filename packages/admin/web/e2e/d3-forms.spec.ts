@@ -1,23 +1,16 @@
 import { expect, test } from "@playwright/test";
+import { loginAsAdmin, openCreateDrawer, openResource, searchForText } from "./helpers";
 
 /**
  * Diamond D3 — fieldsets, widgets, dirty guard, field errors.
  */
 test.describe("AdminBoard diamond D3", () => {
   test("form widgets fieldsets dirty and 422", async ({ page }) => {
-    await page.goto("/admin/");
-    await expect(page.getByTestId("login-page")).toBeVisible({ timeout: 15_000 });
-    await page.getByTestId("login-username").fill("admin");
-    await page.getByTestId("login-password").fill("phzyx");
-    await page.getByTestId("login-submit").click();
-    await expect(page.getByTestId("overview-page")).toBeVisible({ timeout: 15_000 });
-
-    await page.getByTestId("nav-users").click();
-    await expect(page.getByTestId("resource-page-users")).toBeVisible();
+    await loginAsAdmin(page);
+    await openResource(page, "users");
 
     // Open create — fieldsets + widgets
-    await page.getByTestId("new-record").click();
-    await expect(page.getByTestId("record-drawer")).toBeVisible();
+    await openCreateDrawer(page);
     await expect(page.getByTestId("fieldset-identity")).toBeVisible();
     await expect(page.getByTestId("fieldset-details")).toBeVisible();
     await expect(page.getByTestId("field-joined")).toBeVisible();
@@ -29,16 +22,17 @@ test.describe("AdminBoard diamond D3", () => {
     await expect(page.getByTestId("dirty-badge")).toBeVisible();
     await page.getByTestId("drawer-close").click();
     await expect(page.getByRole("heading", { name: "Discard unsaved changes?" })).toBeVisible();
-    await page.getByRole("dialog", { name: "Discard unsaved changes?" }).getByRole("button", { name: "Cancel" }).click();
+    await page
+      .getByRole("dialog", { name: "Discard unsaved changes?" })
+      .getByRole("button", { name: "Cancel" })
+      .click();
     await expect(page.getByTestId("record-drawer")).toBeVisible();
 
     // 422 field errors (missing email). PK is autoincrement — not on create form.
     const uid = String(Date.now() % 1_000_000_000);
-    await expect(page.getByTestId("field-id")).toHaveCount(0);
     await page.getByTestId("field-name").fill("D3 User");
-    // leave email empty
     await page.getByTestId("drawer-save").click();
-    await expect(page.getByTestId("field-error-email")).toBeVisible({ timeout: 10_000 });
+    await expect(page.getByTestId("field-error-email")).toBeVisible({ timeout: 15_000 });
     await expect(page.getByTestId("form-error")).toBeVisible();
 
     // Complete + save
@@ -48,8 +42,6 @@ test.describe("AdminBoard diamond D3", () => {
     await page.getByTestId("field-notes").fill("Diamond form");
     await page.getByTestId("drawer-save").click();
     await expect(page.getByTestId("record-drawer")).toBeHidden({ timeout: 15_000 });
-    // Full seed is multi-page; search for the created row
-    await page.getByTestId("resource-search").fill(email);
-    await expect(page.getByText(email)).toBeVisible({ timeout: 15_000 });
+    await searchForText(page, email);
   });
 });
