@@ -1,6 +1,20 @@
 # phzyx-orm
 
-**Async-first** ORM sessions over Phzyx models. Sync `Session` mirrors the same API for scripts and CLI.
+**Async-first** ORM sessions over Phzyx models. Prefer `AsyncSession` for app routes.
+Sync `Session` mirrors the same API for scripts/CLI **and** AdminBoard’s `session_factory` today.
+
+### Primary keys & timestamps
+
+Single integer PK defaults to DB identity (SQLite rowid / Postgres IDENTITY /
+MySQL AUTO_INCREMENT). Prefer:
+
+```python
+id: int | None = Field(default=None, primary_key=True)
+created_at: datetime | None = Field(default=None, auto_now_add=True)
+```
+
+`session.add(User(email=…))` omits null AI PK and hydrates `id`. Also:
+`bulk_update`, `upsert`, `soft_delete`.
 
 ## Install
 
@@ -21,7 +35,7 @@ from phzyx.schema.types import Dialect
 engine = create_async_engine("sqlite+aiosqlite:///./app.db")
 
 async with AsyncSession(await engine.connect(), dialect=Dialect.SQLITE) as session:
-    await session.add(User(id=1, email="a@b.co"))
+    await session.add(User(email="a@b.co"))
     rows = await session.query(User, where=[eq("email", "a@b.co")])
 ```
 
@@ -33,7 +47,7 @@ from phzyx.schema.types import Dialect
 
 engine = create_engine("sqlite:///./app.db")
 with Session(engine.connect(), dialect=Dialect.SQLITE) as session:
-    session.add(User(id=1, email="a@b.co"))
+    session.add(User(email="a@b.co"))
     session.commit()
     print(session.query(User, where=[eq("email", "a@b.co")]))
 ```

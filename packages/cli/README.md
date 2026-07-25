@@ -1,7 +1,5 @@
-# name = "phzyx-cli"
+# phzyx-cli
 
-Part of [Phzyx Forge](https://github.com/phzyxyz/forge).
+Phzyx CLI — phzyx command-line interface
 
-```bash
-uv add name = "phzyx-cli"
-```
+Part of the [Phzyx](https://phzyx.xyz) ecosystem. Install via `uv add phzyx-cli` or the meta package `phzyx`.

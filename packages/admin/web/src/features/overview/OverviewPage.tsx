@@ -1,8 +1,8 @@
-import { useQueries } from "@tanstack/react-query";
+import { useQuery } from "@tanstack/react-query";
 import type { ResourceSchema } from "../../shared/api/types";
 import { relativeTime } from "../../shared/lib/format";
 import { useActivityStore, useShellStore } from "../../shared/stores/shell";
-import { listRecords } from "../resources/api";
+import { fetchDashboardWidgets } from "../resources/api";
 
 export function OverviewPage({
   resources,
@@ -14,34 +14,37 @@ export function OverviewPage({
   const setRoute = useShellStore((s) => s.setRoute);
   const apiVersion = useShellStore((s) => s.apiVersion);
   const themePref = useShellStore((s) => s.themePref);
+  const t = useShellStore((s) => s.t);
   const activity = useActivityStore((s) => s.items);
 
-  const counts = useQueries({
-    queries: resources.map((r) => ({
-      queryKey: ["list", r.name, "overview"],
-      queryFn: () => listRecords(demo, r.name, { page: 1, page_size: 5 }),
-    })),
+  const widgetsQ = useQuery({
+    queryKey: ["dashboard-widgets", demo, resources.map((r) => r.name).join(",")],
+    queryFn: () => fetchDashboardWidgets(demo, resources),
   });
 
-  const totalRows = counts.reduce((acc, q) => acc + (q.data?.total ?? 0), 0);
+  const widgets = widgetsQ.data ?? [];
+  const totalRows = widgets.reduce((acc, w) => acc + (Number(w.value) || 0), 0);
+  const countByResource = Object.fromEntries(
+    widgets.map((w) => [w.resource, Number(w.value) || 0]),
+  );
 
   return (
     <div className="page" data-testid="overview-page">
       <div className="page-header">
         <div>
-          <h1>Overview</h1>
+          <h1>{t("nav.overview", "Overview")}</h1>
           <p className="sub">AdminBoard control surface for your Phzyx resources.</p>
         </div>
       </div>
 
-      <div className="stat-grid">
+      <div className="stat-grid" data-testid="dashboard-widgets">
         <div className="stat-card">
-          <div className="label">Resources</div>
+          <div className="label">{t("nav.resources", "Resources")}</div>
           <div className="value">{resources.length}</div>
         </div>
         <div className="stat-card">
           <div className="label">Records</div>
-          <div className="value">{totalRows}</div>
+          <div className="value">{widgetsQ.isLoading ? "…" : totalRows}</div>
         </div>
         <div className="stat-card">
           <div className="label">API</div>
@@ -57,10 +60,30 @@ export function OverviewPage({
         </div>
       </div>
 
+      {widgets.length > 0 && (
+        <section data-testid="widget-counts">
+          <h2 style={{ margin: "8px 0 12px", fontSize: "0.95rem" }}>By resource</h2>
+          <div className="stat-grid">
+            {widgets.map((w) => (
+              <button
+                key={w.resource}
+                type="button"
+                className="stat-card"
+                style={{ cursor: "pointer", textAlign: "left", border: 0 }}
+                onClick={() => setRoute({ page: "resource", name: w.resource })}
+              >
+                <div className="label">{w.label || w.title || w.resource}</div>
+                <div className="value">{w.value}</div>
+              </button>
+            ))}
+          </div>
+        </section>
+      )}
+
       <section>
         <h2 style={{ margin: "8px 0 12px", fontSize: "0.95rem" }}>Quick open</h2>
         <div className="card-grid">
-          {resources.map((r, i) => (
+          {resources.map((r) => (
             <button
               key={r.name}
               type="button"
@@ -70,9 +93,11 @@ export function OverviewPage({
             >
               <h3>{r.label}</h3>
               <p>
-                {counts[i]?.data
-                  ? `${counts[i].data!.total} record${counts[i].data!.total === 1 ? "" : "s"}`
-                  : "Loading…"}
+                {widgetsQ.isLoading
+                  ? "Loading…"
+                  : `${countByResource[r.name] ?? 0} record${
+                      (countByResource[r.name] ?? 0) === 1 ? "" : "s"
+                    }`}
                 {r.primary_key.length > 1 ? " · composite PK" : ""}
               </p>
             </button>

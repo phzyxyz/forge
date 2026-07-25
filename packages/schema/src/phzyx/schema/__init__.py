@@ -6,6 +6,8 @@ from phzyx.schema.ddl import (
     quote_ident,
     render_create_index,
     render_create_table,
+    render_enum_ddl,
+    render_identity_migration_sql,
     render_manifest_ddl,
     render_table_ddl,
 )
@@ -40,11 +42,15 @@ from phzyx.schema.registry import (
     unregister_model,
 )
 from phzyx.schema.types import (
+    MSSQL_LIMITS,
+    MSSQL_TYPES,
     MYSQL_LIMITS,
     MYSQL_TYPES,
     SQLITE_LIMITS,
     Dialect,
     LogicalType,
+    enum_values,
+    field_max_length,
     infer_logical_type,
     physical_type,
 )
@@ -53,6 +59,8 @@ __version__ = "0.1.0"
 
 __all__ = [
     "MANIFEST_VERSION",
+    "MSSQL_LIMITS",
+    "MSSQL_TYPES",
     "MYSQL_LIMITS",
     "MYSQL_TYPES",
     "PHZYX_JSON_SCHEMA_KEY",
@@ -81,6 +89,8 @@ __all__ = [
     "get_column_meta",
     "get_registry",
     "get_table_info",
+    "enum_values",
+    "field_max_length",
     "infer_logical_type",
     "manifest_from_dict",
     "manifest_from_json",
@@ -91,6 +101,8 @@ __all__ = [
     "register_model",
     "render_create_index",
     "render_create_table",
+    "render_enum_ddl",
+    "render_identity_migration_sql",
     "render_manifest_ddl",
     "render_table_ddl",
     "unregister_model",

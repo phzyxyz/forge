@@ -285,3 +285,24 @@
   font-size: 11px;
   margin-top: 2px;
 }
+
+.palette-badge {
+  display: inline-block;
+  font-size: 10px;
+  font-weight: 600;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  color: var(--phzyx-cyan-400, #22d3ee);
+  margin-right: 8px;
+  opacity: 0.9;
+}
+
+.palette-hint,
+.palette-foot {
+  padding: 10px 14px;
+  font-size: 12px;
+}
+
+.palette-foot {
+  border-top: 1px solid var(--phzyx-border);
+}

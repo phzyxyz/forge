@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import re
 from collections.abc import Set as AbstractSet
 from dataclasses import dataclass
 
@@ -89,13 +90,22 @@ def capabilities_for(dialect: Dialect | str, version: Version) -> CapabilitySet:
         }
         return CapabilitySet(dialect=d, version=version, features=frozenset(features))
 
+    if d is Dialect.MSSQL:
+        # SQL Server 2017+ baseline used by the local matrix.
+        features = {
+            CAP_COMPOSITE_PK,
+            CAP_JSON_TYPE,  # NVARCHAR(MAX) JSON text
+            CAP_UUID,  # UNIQUEIDENTIFIER
+            CAP_SCHEMAS,  # dbo etc.
+            CAP_TRANSACTIONAL_DDL,  # most DDL in transactions
+        }
+        return CapabilitySet(dialect=d, version=version, features=frozenset(features))
+
     return CapabilitySet(dialect=d, version=version, features=frozenset())
 
 
 def parse_version(raw: str, *, dialect: Dialect | str | None = None) -> Version:
     """Best-effort parse of version strings from SQLite/Postgres."""
-    import re
-
     text = raw.strip()
     # Postgres: "PostgreSQL 16.2 on ..."
     m = re.search(r"(\d+)\.(\d+)(?:\.(\d+))?", text)

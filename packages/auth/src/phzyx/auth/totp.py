@@ -9,6 +9,7 @@ import secrets
 import struct
 import time
 from dataclasses import dataclass
+from urllib.parse import quote
 
 
 def _b32_encode_secret(raw: bytes) -> str:
@@ -91,8 +92,6 @@ def provisioning_uri(
     issuer: str = "Phzyx",
 ) -> str:
     """otpauth:// URI for authenticator apps (QR encoding left to the app)."""
-    from urllib.parse import quote
-
     label = quote(f"{issuer}:{account_name}")
     iss = quote(issuer)
     return f"otpauth://totp/{label}?secret={secret}&issuer={iss}&algorithm=SHA1&digits=6&period=30"

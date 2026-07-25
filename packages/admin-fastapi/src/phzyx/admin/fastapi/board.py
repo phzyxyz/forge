@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import os
+import warnings
 from collections.abc import Callable, Sequence
 from pathlib import Path
 from typing import Any
@@ -91,8 +92,6 @@ class AdminBoard:
 
         if isinstance(self.authz, AllowAll) and _is_prod():
             # Security baseline: warn if no auth in production-like env
-            import warnings
-
             warnings.warn(
                 "AdminBoard using AllowAll authz in production-like environment",
                 UserWarning,

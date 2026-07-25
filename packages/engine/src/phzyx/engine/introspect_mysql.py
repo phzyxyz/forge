@@ -14,6 +14,7 @@ from phzyx.engine.normalize import normalize_sql_type
 from phzyx.schema.manifest import (
     MANIFEST_VERSION,
     ColumnDef,
+    IndexDef,
     Manifest,
     TableDef,
 )
@@ -90,6 +91,35 @@ class MySQLAdapter:
                 (schema, name),
             )
             pk = tuple(r[0] for r in cur.fetchall())
+            # Secondary indexes (unique + non-unique) for push/diff idempotence.
+            cur.execute(
+                """
+                SELECT index_name, column_name, non_unique, seq_in_index
+                FROM information_schema.statistics
+                WHERE table_schema = %s AND table_name = %s
+                  AND index_name <> 'PRIMARY'
+                ORDER BY index_name, seq_in_index
+                """,
+                (schema, name),
+            )
+            idx_map: dict[str, list[Any]] = {}
+            for index_name, column_name, non_unique, _seq in cur.fetchall():
+                bucket = idx_map.setdefault(index_name, [[], non_unique])
+                bucket[0].append(column_name)
+            indexes = tuple(
+                IndexDef(
+                    name=idx_name,
+                    columns=tuple(cols),
+                    unique=(non_unique == 0),
+                )
+                for idx_name, (cols, non_unique) in idx_map.items()
+            )
+            unique_cols = {
+                col
+                for idx in indexes
+                if idx.unique and len(idx.columns) == 1
+                for col in idx.columns
+            }
             columns: list[ColumnDef] = []
             for col_name, data_type, column_type, is_nullable, default in col_rows:
                 # Prefer data_type (e.g. "bigint"); fall back to column_type ("bigint(20)").
@@ -101,6 +131,7 @@ class MySQLAdapter:
                         logical_type=logical,
                         nullable=is_nullable == "YES" and col_name not in pk,
                         primary_key=col_name in pk,
+                        unique=col_name in unique_cols,
                         server_default=str(default) if default is not None else None,
                     )
                 )
@@ -109,7 +140,7 @@ class MySQLAdapter:
                 schema_name=None,  # current DATABASE(); not multi-schema in v1 baseline
                 columns=tuple(columns),
                 primary_key=pk,
-                indexes=(),
+                indexes=indexes,
                 constraints=(),
             )
         finally:

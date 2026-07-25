@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import contextlib
 from typing import Any
 
 from phzyx.auth.csrf import issue_csrf_token
@@ -274,8 +275,6 @@ def mount_auth_litestar(
         if isinstance(state, dict):
             state["phzyx_auth"] = service
         else:
-            import contextlib
-
             with contextlib.suppress(Exception):
                 state.phzyx_auth = service
     return service

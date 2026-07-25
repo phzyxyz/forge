@@ -7,8 +7,10 @@ from types import TracebackType
 from typing import Any, TypeVar
 
 from phzyx.orm.engine_async import AsyncEngine
-from phzyx.orm.expr import Filter, OrderBy
+from phzyx.orm.errors import ConflictError
+from phzyx.orm.expr import Filter, OrderBy, eq
 from phzyx.orm.hydrate import model_to_row, row_to_model
+from phzyx.orm.insert_prep import prepare_insert_values, prepare_update_values
 from phzyx.orm.sql import (
     build_delete,
     build_insert,
@@ -16,7 +18,8 @@ from phzyx.orm.sql import (
     build_select_by_pk,
     build_update,
 )
-from phzyx.schema.model import Model
+from phzyx.orm.sqlite_params import adapt_sqlite_params
+from phzyx.schema.model import Model, get_table_info
 from phzyx.schema.types import Dialect
 
 M = TypeVar("M", bound=Model)
@@ -71,51 +74,93 @@ class AsyncSession:
         return self
 
     async def add(self, instance: Model) -> Model:
-        data = model_to_row(instance)
+        data, omitted_pk = prepare_insert_values(instance)
+        use_returning = self.dialect is Dialect.POSTGRES
         frag = build_insert(
             type(instance),
             data,
             dialect=self.dialect,
-            returning=self.dialect is Dialect.POSTGRES,
+            returning=use_returning,
         )
         if self.dialect is Dialect.SQLITE:
-            await self._conn.execute(frag.sql, frag.params)
-            # re-read if single pk autoincrement not used; values already known
-            return instance
-        # asyncpg
-        if frag.sql.upper().endswith("RETURNING") or " RETURNING " in frag.sql.upper():
+            await self._conn.execute(frag.sql, adapt_sqlite_params(frag.params))
+            base = {**data}
+            if omitted_pk is not None:
+                cur = await self._conn.execute("SELECT last_insert_rowid()")
+                row = await cur.fetchone()
+                new_id = row[0] if row else None
+                if new_id is None:
+                    raise RuntimeError(
+                        f"INSERT succeeded but lastrowid missing for {type(instance).__name__}"
+                    )
+                base[omitted_pk] = new_id
+            return type(instance).model_validate(base)
+
+        if use_returning:
             row = await self._conn.fetchrow(frag.sql, *frag.params)
             if row is not None:
                 return row_to_model(type(instance), dict(row))
-        else:
-            await self._conn.execute(frag.sql, *frag.params)
-        return instance
+            if omitted_pk is not None:
+                raise RuntimeError(
+                    f"INSERT RETURNING produced no row for {type(instance).__name__}"
+                )
+            return type(instance).model_validate(data)
+
+        await self._conn.execute(frag.sql, *frag.params)
+        base = {**data}
+        if omitted_pk is not None:
+            new_id = getattr(self._conn, "lastrowid", None)
+            if not new_id:
+                raise RuntimeError(
+                    f"INSERT succeeded but lastrowid missing for {type(instance).__name__}"
+                )
+            base[omitted_pk] = new_id
+        return type(instance).model_validate(base)
 
     async def get(self, model: type[M], key: Any) -> M | None:
         frag = build_select_by_pk(model, key, dialect=self.dialect)
         return await self._fetch_one(model, frag.sql, frag.params)
 
     async def delete(self, instance: Model) -> None:
-        from phzyx.orm.expr import eq
-        from phzyx.schema.model import get_table_info
-
         info = get_table_info(type(instance))
         data = model_to_row(instance)
         where = [eq(col, data[col]) for col in info.primary_key]
         frag = build_delete(type(instance), where, dialect=self.dialect)
-        await self._execute(frag.sql, frag.params)
+        await self.execute(frag.sql, frag.params)
 
     async def update(self, instance: Model, **values: Any) -> Model:
-        from phzyx.orm.expr import eq
-        from phzyx.schema.model import get_table_info
-
         info = get_table_info(type(instance))
         data = model_to_row(instance)
+        for col in info.primary_key:
+            if data.get(col) is None:
+                raise ValueError(
+                    f"cannot update {type(instance).__name__}: primary key {col!r} is unset"
+                )
+        try:
+            values = prepare_update_values(instance, values)
+        except ValueError:
+            if not values:
+                return instance
+            raise
         where = [eq(col, data[col]) for col in info.primary_key]
+        has_opt = False
+        for col_name, meta in info.columns.items():
+            if not meta.optimistic:
+                continue
+            has_opt = True
+            old_v = data.get(col_name)
+            if old_v is None:
+                old_v = 0
+            where.append(eq(col_name, old_v))
+            values[col_name] = int(old_v) + 1
         frag = build_update(type(instance), values, where, dialect=self.dialect)
-        await self._execute(frag.sql, frag.params)
-        merged = {**data, **values}
-        return type(instance).model_validate(merged)
+        n = await self.execute(frag.sql, frag.params)
+        if has_opt and n == 0:
+            raise ConflictError("optimistic lock failed: row was updated elsewhere")
+        if has_opt and n < 0:
+            # Driver reported unknown rowcount — re-read and compare versions.
+            await self._verify_optimistic(type(instance), data, info)
+        return type(instance).model_validate({**data, **values})
 
     async def query(
         self,
@@ -125,6 +170,7 @@ class AsyncSession:
         order_by: Sequence[OrderBy] = (),
         limit: int | None = None,
         offset: int | None = None,
+        for_update: bool | str = False,
     ) -> list[M]:
         frag = build_select(
             model,
@@ -133,18 +179,63 @@ class AsyncSession:
             limit=limit,
             offset=offset,
             dialect=self.dialect,
+            for_update=for_update,
         )
         return await self._fetch_all(model, frag.sql, frag.params)
 
-    async def _execute(self, sql: str, params: list[Any]) -> None:
-        if self.dialect is Dialect.SQLITE:
-            await self._conn.execute(sql, params)
+    async def get_for_update(
+        self,
+        model: type[M],
+        key: Any,
+        *,
+        nowait: bool = False,
+        skip_locked: bool = False,
+    ) -> M | None:
+        mode: bool | str = True
+        if nowait:
+            mode = "NOWAIT"
+        elif skip_locked:
+            mode = "SKIP LOCKED"
+        info = get_table_info(model)
+        pk = info.primary_key
+        if len(pk) == 1:
+            val = key[pk[0]] if isinstance(key, dict) else key
+            where = [eq(pk[0], val)]
         else:
-            await self._conn.execute(sql, *params)
+            if not isinstance(key, dict):
+                raise ValueError("composite key requires dict")
+            where = [eq(c, key[c]) for c in pk]
+        rows = await self.query(model, where=where, limit=1, for_update=mode)
+        return rows[0] if rows else None
+
+    async def execute(self, sql: str, params: list[Any] | None = None) -> int:
+        """Execute a parameterized statement; return rowcount or ``-1`` if unknown."""
+        bind = list(params or [])
+        if self.dialect is Dialect.SQLITE:
+            cur = await self._conn.execute(sql, adapt_sqlite_params(bind))
+            rc = getattr(cur, "rowcount", None)
+            return -1 if rc is None else int(rc)
+        result = await self._conn.execute(sql, *bind)
+        rc = getattr(result, "rowcount", None)
+        return -1 if rc is None else int(rc)
+
+    async def _verify_optimistic(self, model: type[Model], data: dict[str, Any], info: Any) -> None:
+        """When rowcount is unreliable, re-read and compare optimistic columns."""
+        key = (
+            data[info.primary_key[0]]
+            if len(info.primary_key) == 1
+            else {c: data[c] for c in info.primary_key}
+        )
+        current = await self.get(model, key)
+        if current is None:
+            raise ConflictError("optimistic lock failed: row missing")
+        for col_name, meta in info.columns.items():
+            if meta.optimistic and getattr(current, col_name, None) != data.get(col_name):
+                raise ConflictError("optimistic lock failed: row was updated elsewhere")
 
     async def _fetch_one(self, model: type[M], sql: str, params: list[Any]) -> M | None:
         if self.dialect is Dialect.SQLITE:
-            cur = await self._conn.execute(sql, params)
+            cur = await self._conn.execute(sql, adapt_sqlite_params(params))
             row = await cur.fetchone()
             if row is None:
                 return None
@@ -156,7 +247,7 @@ class AsyncSession:
 
     async def _fetch_all(self, model: type[M], sql: str, params: list[Any]) -> list[M]:
         if self.dialect is Dialect.SQLITE:
-            cur = await self._conn.execute(sql, params)
+            cur = await self._conn.execute(sql, adapt_sqlite_params(params))
             rows = await cur.fetchall()
             return [row_to_model(model, r) for r in rows]
         rows = await self._conn.fetch(sql, *params)

@@ -8,6 +8,7 @@ from typing import Any
 from phzyx.engine.ops import SchemaOp
 from phzyx.engine.plan import SchemaPlan
 from phzyx.schema.ddl import quote_ident, render_create_index, render_create_table
+from phzyx.schema.manifest import TableDef
 from phzyx.schema.types import Dialect, physical_type
 
 
@@ -46,21 +47,38 @@ def render_op(op: SchemaOp, *, dialect: Dialect) -> list[str]:
     if op.kind == "add_column":
         assert op.column is not None
         col = op.column
-        phys = physical_type(col.logical_type, dialect, db_type=col.db_type)
+        phys = physical_type(
+            col.logical_type, dialect, db_type=col.db_type, max_length=col.max_length
+        )
+        # SQL Server rejects indexes on NVARCHAR(MAX); match create-table keying.
+        if dialect is Dialect.MSSQL and "MAX" in phys.upper() and (col.unique or col.index):
+            phys = f"NVARCHAR({col.max_length or 255})"
         null_sql = "" if col.nullable else " NOT NULL"
-        default = f" DEFAULT {col.server_default}" if col.server_default else ""
+        default = ""
+        if col.server_default:
+            from phzyx.schema.ddl import mysql_timestamp_expr
+
+            expr = mysql_timestamp_expr(col.server_default, phys, dialect)
+            default = f" DEFAULT {expr}"
+        # T-SQL is ``ADD col`` (no COLUMN keyword); others use ADD COLUMN.
+        add_kw = "ADD" if dialect is Dialect.MSSQL else "ADD COLUMN"
         return [
-            f"ALTER TABLE {t} ADD COLUMN {quote_ident(col.name, dialect)} {phys}{null_sql}{default}"
+            f"ALTER TABLE {t} {add_kw} {quote_ident(col.name, dialect)} {phys}{null_sql}{default}"
         ]
     if op.kind == "rename_column":
-        old = quote_ident(op.column_name or "", dialect)
-        new = quote_ident(op.new_column_name or "", dialect)
-        if dialect is Dialect.SQLITE:
-            return [f"ALTER TABLE {t} RENAME COLUMN {old} TO {new}"]
+        old_name = op.column_name or ""
+        new_name = op.new_column_name or ""
+        if dialect is Dialect.MSSQL:
+            # sp_rename first arg is 'table.column' (no brackets).
+            return [f"EXEC sp_rename '{op.table}.{old_name}', '{new_name}', 'COLUMN'"]
+        old = quote_ident(old_name, dialect)
+        new = quote_ident(new_name, dialect)
         return [f"ALTER TABLE {t} RENAME COLUMN {old} TO {new}"]
     if op.kind == "archive_column":
         old_name = op.column_name or ""
         new_name = archive_column_name(old_name)
+        if dialect is Dialect.MSSQL:
+            return [f"EXEC sp_rename '{op.table}.{old_name}', '{new_name}', 'COLUMN'"]
         old = quote_ident(old_name, dialect)
         new = quote_ident(new_name, dialect)
         return [f"ALTER TABLE {t} RENAME COLUMN {old} TO {new}"]
@@ -69,15 +87,17 @@ def render_op(op: SchemaOp, *, dialect: Dialect) -> list[str]:
         return [f"ALTER TABLE {t} DROP COLUMN {col}"]
     if op.kind == "add_index":
         assert op.index is not None
-        # minimal table def for renderer
-        from phzyx.schema.manifest import TableDef
-
+        # Minimal table def for the index renderer (name + dialect only).
         td = TableDef(name=op.table, columns=(), primary_key=())
         return [render_create_index(td, op.index, dialect)]
     if op.kind == "drop_index":
         assert op.index is not None
+        if dialect is Dialect.MSSQL:
+            return [f"DROP INDEX {quote_ident(op.index.name, dialect)} ON {t}"]
         return [f"DROP INDEX {quote_ident(op.index.name, dialect)}"]
     if op.kind == "drop_table":
+        if dialect is Dialect.MSSQL:
+            return [f"DROP TABLE IF EXISTS {t}"]
         return [f"DROP TABLE {t}"]
     return []
 

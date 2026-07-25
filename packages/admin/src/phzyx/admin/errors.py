@@ -41,3 +41,10 @@ class ValidationAdminError(AdminError):
 class UnauthorizedError(AdminError):
     def __init__(self, message: str = "Unauthorized", **details: Any) -> None:
         super().__init__(code="unauthorized", message=message, status=401, details=details)
+
+
+class ConflictError(AdminError):
+    """HTTP 409 — optimistic concurrency / version conflict."""
+
+    def __init__(self, message: str = "Conflict", **details: Any) -> None:
+        super().__init__(code="conflict", message=message, status=409, details=details)

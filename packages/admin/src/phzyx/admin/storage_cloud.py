@@ -4,6 +4,7 @@ from __future__ import annotations
 
 from contextlib import suppress
 from dataclasses import dataclass, field
+from datetime import UTC, datetime, timedelta
 from typing import Any
 from urllib.parse import urljoin
 
@@ -96,6 +97,25 @@ class S3CompatibleStorage:
             ExpiresIn=expires_in,
         )
 
+    def presign_put(
+        self,
+        key: str,
+        *,
+        expires_in: int = 3600,
+        content_type: str | None = None,
+    ) -> str:
+        params: dict[str, Any] = {"Bucket": self.bucket, "Key": self._key(key)}
+        if content_type:
+            params["ContentType"] = content_type
+        return self._client().generate_presigned_url(
+            ClientMethod="put_object",
+            Params=params,
+            ExpiresIn=expires_in,
+        )
+
+    def presign_get(self, key: str, *, expires_in: int = 3600) -> str:
+        return self.presign(key, expires_in=expires_in, method="get_object")
+
 
 @dataclass
 class AzureBlobStorage:
@@ -157,6 +177,83 @@ class AzureBlobStorage:
             return urljoin(self.public_base_url.rstrip("/") + "/", sanitize_upload_key(key))
         return None
 
+    def presign_put(
+        self,
+        key: str,
+        *,
+        expires_in: int = 3600,
+        content_type: str | None = None,
+    ) -> str:
+        """SAS URL for upload (requires azure-storage-blob)."""
+        k = sanitize_upload_key(key)
+        if k in self._mem:
+            return f"memory://{self.container}/{k}?put=1&exp={expires_in}"
+        try:
+            from azure.storage.blob import BlobSasPermissions, generate_blob_sas
+        except ImportError as exc:  # pragma: no cover
+            raise ImportError("Azure presign requires azure-storage-blob") from exc
+        blob = self._blob(k)
+        # Best-effort: use account key from connection string if available
+        account_name = getattr(blob, "account_name", None) or "account"
+        account_key = self.credential if isinstance(self.credential, str) else None
+        if account_key is None and self.connection_string:
+            for part in self.connection_string.split(";"):
+                if part.startswith("AccountKey="):
+                    account_key = part.split("=", 1)[1]
+                if part.startswith("AccountName="):
+                    account_name = part.split("=", 1)[1]
+        if not account_key:
+            raise RuntimeError("Azure presign needs AccountKey credential")
+        sas = generate_blob_sas(
+            account_name=account_name,
+            container_name=self.container,
+            blob_name=k,
+            account_key=account_key,
+            permission=BlobSasPermissions(write=True, create=True),
+            expiry=datetime.now(UTC) + timedelta(seconds=expires_in),
+            content_type=content_type,
+        )
+        base = (
+            blob.url
+            if hasattr(blob, "url")
+            else f"https://{account_name}.blob.core.windows.net/{self.container}/{k}"
+        )
+        return f"{base}?{sas}"
+
+    def presign_get(self, key: str, *, expires_in: int = 3600) -> str:
+        k = sanitize_upload_key(key)
+        if k in self._mem:
+            return f"memory://{self.container}/{k}?get=1&exp={expires_in}"
+        try:
+            from azure.storage.blob import BlobSasPermissions, generate_blob_sas
+        except ImportError as exc:  # pragma: no cover
+            raise ImportError("Azure presign requires azure-storage-blob") from exc
+        blob = self._blob(k)
+        account_name = getattr(blob, "account_name", None) or "account"
+        account_key = self.credential if isinstance(self.credential, str) else None
+        if account_key is None and self.connection_string:
+            for part in self.connection_string.split(";"):
+                if part.startswith("AccountKey="):
+                    account_key = part.split("=", 1)[1]
+                if part.startswith("AccountName="):
+                    account_name = part.split("=", 1)[1]
+        if not account_key:
+            raise RuntimeError("Azure presign needs AccountKey credential")
+        sas = generate_blob_sas(
+            account_name=account_name,
+            container_name=self.container,
+            blob_name=k,
+            account_key=account_key,
+            permission=BlobSasPermissions(read=True),
+            expiry=datetime.now(UTC) + timedelta(seconds=expires_in),
+        )
+        base = (
+            blob.url
+            if hasattr(blob, "url")
+            else f"https://{account_name}.blob.core.windows.net/{self.container}/{k}"
+        )
+        return f"{base}?{sas}"
+
 
 @dataclass
 class GCSStorage:
@@ -210,6 +307,35 @@ class GCSStorage:
         if self.public_base_url:
             return urljoin(self.public_base_url.rstrip("/") + "/", sanitize_upload_key(key))
         return None
+
+    def presign_put(
+        self,
+        key: str,
+        *,
+        expires_in: int = 3600,
+        content_type: str | None = None,
+    ) -> str:
+        k = sanitize_upload_key(key)
+        if k in self._mem:
+            return f"memory://{self.bucket_name}/{k}?put=1&exp={expires_in}"
+        blob = self._bucket().blob(k)
+        return blob.generate_signed_url(
+            version="v4",
+            expiration=expires_in,
+            method="PUT",
+            content_type=content_type,
+        )
+
+    def presign_get(self, key: str, *, expires_in: int = 3600) -> str:
+        k = sanitize_upload_key(key)
+        if k in self._mem:
+            return f"memory://{self.bucket_name}/{k}?get=1&exp={expires_in}"
+        blob = self._bucket().blob(k)
+        return blob.generate_signed_url(
+            version="v4",
+            expiration=expires_in,
+            method="GET",
+        )
 
 
 def _has_boto3() -> bool:

@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 import re
-from dataclasses import dataclass
+from dataclasses import dataclass, replace
 from types import MappingProxyType
 from typing import Any, ClassVar
 
@@ -173,21 +173,7 @@ def _collect_columns(
     adjusted: dict[str, ColumnMeta] = {}
     for name, meta in columns.items():
         if name in pk_set and not meta.primary_key:
-            adjusted[name] = ColumnMeta(
-                primary_key=True,
-                unique=meta.unique,
-                index=meta.index,
-                foreign_key=meta.foreign_key,
-                on_delete=meta.on_delete,
-                server_default=meta.server_default,
-                db_type=meta.db_type,
-                renamed_from=meta.renamed_from,
-                archive_on_remove=meta.archive_on_remove,
-                admin_hidden=meta.admin_hidden,
-                admin_readonly=meta.admin_readonly,
-                admin_exclude=meta.admin_exclude,
-                file_kind=meta.file_kind,
-            )
+            adjusted[name] = replace(meta, primary_key=True)
         else:
             adjusted[name] = meta
     return adjusted, meta_pk_list

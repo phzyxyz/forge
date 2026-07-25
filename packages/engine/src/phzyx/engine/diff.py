@@ -73,6 +73,10 @@ def _diff_table(desired: TableDef, live: TableDef) -> list[SchemaOp]:
         if name in renames:
             continue  # old name handled by rename
         if name not in d_cols:
+            # Prior archive renames leave `_phzyx_archived_*` columns; never
+            # re-diff them as removable or they thrash every push.
+            if name.startswith("_phzyx_archived_"):
+                continue
             ops.append(
                 SchemaOp(
                     kind="drop_column",

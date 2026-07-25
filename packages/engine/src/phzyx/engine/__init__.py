@@ -14,10 +14,17 @@ from phzyx.engine.connection import connect
 from phzyx.engine.diff import diff_manifests
 from phzyx.engine.dsn import DatabaseURL, parse_database_url
 from phzyx.engine.errors import ConnectionError, EngineError, MigrationError, PolicyError
+from phzyx.engine.introspect_mssql import MssqlAdapter
 from phzyx.engine.introspect_mysql import MySQLAdapter
 from phzyx.engine.introspect_postgres import PostgresAdapter
 from phzyx.engine.introspect_sqlite import SQLiteAdapter
-from phzyx.engine.lint import LintFinding, LintResult, lint_plan
+from phzyx.engine.lint import (
+    LintFinding,
+    LintResult,
+    assert_lint_clean,
+    lint_exit_code,
+    lint_plan,
+)
 from phzyx.engine.migrate import (
     HISTORY_TABLE,
     MigrateStatus,
@@ -53,6 +60,7 @@ __all__ = [
     "MigrationError",
     "MigrationFile",
     "MigrateStatus",
+    "MssqlAdapter",
     "MySQLAdapter",
     "PostgresAdapter",
     "PolicyError",
@@ -65,6 +73,7 @@ __all__ = [
     "__version__",
     "apply_plan",
     "archive_column_name",
+    "assert_lint_clean",
     "build_plan",
     "capabilities_for",
     "confirm_plan",
@@ -73,6 +82,7 @@ __all__ = [
     "diff_manifests",
     "ensure_history_table",
     "is_production_like_env",
+    "lint_exit_code",
     "lint_plan",
     "list_migration_files",
     "load_config",

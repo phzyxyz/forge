@@ -98,4 +98,24 @@ def _lint_op(
                 op.kind,
             )
         )
+    if op.kind == "rename_column":
+        out.append(
+            LintFinding(
+                "warning",
+                "review_rename_column",
+                f"review rename {op.table}.{op.column_name} → {op.new_column_name}",
+                op.kind,
+            )
+        )
     return out
+
+
+def lint_exit_code(result: LintResult) -> int:
+    """Process exit code for CI (0 clean, 1 errors)."""
+    return 0 if result.ok else 1
+
+
+def assert_lint_clean(result: LintResult) -> None:
+    """Raise PolicyError-like RuntimeError if lint has errors (CI helper)."""
+    if not result.ok:
+        raise RuntimeError(result.summary())

@@ -4,9 +4,12 @@ from __future__ import annotations
 
 from typing import TYPE_CHECKING, Any
 
+from phzyx.admin.auth import AllowAllFields, require_authz
 from phzyx.admin.errors import AdminError
+from phzyx.admin.layouts import LayoutPrefs
 from phzyx.admin.opener import open_meta_for_key
 from phzyx.admin.service import AdminService
+from phzyx.admin.settings import AdminSettings
 from phzyx.admin.themes import PRIMARY_THEMES
 
 from fastapi import APIRouter, Header, HTTPException, Request, Response
@@ -20,8 +23,6 @@ def create_admin_router(board: AdminBoard) -> APIRouter:
     router = APIRouter(tags=["adminboard"])
 
     def service() -> AdminService:
-        from phzyx.admin.auth import AllowAllFields
-
         return AdminService(
             resources=board.resources,
             session=board.session_factory(),
@@ -70,8 +71,51 @@ def create_admin_router(board: AdminBoard) -> APIRouter:
                 "audit": True,
                 "trust": True,
                 "branding": True,
+                "global_search": True,
+                "dashboard_widgets": True,
+                "i18n": True,
             },
         }
+
+    @router.get("/search")
+    def global_search_api(
+        request: Request,
+        q: str = "",
+        limit: int = 5,
+        x_api_key: str | None = Header(default=None),
+    ) -> Any:
+        """⌘K global search across searchable columns of all resources."""
+        p = principal(request, x_api_key)
+        try:
+            hits = service().global_search(q, limit_per_resource=limit, principal=p)
+            return {"items": hits, "query": q}
+        except AdminError as exc:
+            return JSONResponse(exc.to_dict(), status_code=exc.status)
+
+    @router.get("/widgets")
+    def dashboard_widgets_api(
+        request: Request,
+        x_api_key: str | None = Header(default=None),
+    ) -> Any:
+        """Dashboard count widgets for the overview home."""
+        p = principal(request, x_api_key)
+        try:
+            return {"items": service().dashboard_widgets(principal=p)}
+        except AdminError as exc:
+            return JSONResponse(exc.to_dict(), status_code=exc.status)
+
+    @router.get("/i18n")
+    def i18n_catalog_api(
+        locale: str = "en",
+    ) -> Any:
+        """Chrome string catalog (EN default; locale overlay when configured)."""
+        try:
+            return {
+                "locale": locale or "en",
+                "catalog": service().i18n_catalog(locale=locale or "en"),
+            }
+        except AdminError as exc:
+            return JSONResponse(exc.to_dict(), status_code=exc.status)
 
     @router.get("/audit")
     def audit_list(
@@ -80,8 +124,6 @@ def create_admin_router(board: AdminBoard) -> APIRouter:
         x_api_key: str | None = Header(default=None),
     ) -> Any:
         """Diamond D7 — admin write/export audit events (newest last)."""
-        from phzyx.admin.auth import require_authz
-
         p = principal(request, x_api_key)
         try:
             require_authz(board.authz, p, "list", "audit")
@@ -459,8 +501,6 @@ def create_admin_router(board: AdminBoard) -> APIRouter:
     def file_download(
         request: Request, key: str, x_api_key: str | None = Header(default=None)
     ) -> Any:
-        from phzyx.admin.auth import require_authz
-
         try:
             require_authz(board.authz, principal(request, x_api_key), "download", "files")
             data = board.storage.open(key)
@@ -476,8 +516,6 @@ def create_admin_router(board: AdminBoard) -> APIRouter:
 
     @router.post("/files/upload")
     async def file_upload(request: Request, x_api_key: str | None = Header(default=None)) -> Any:
-        from phzyx.admin.auth import require_authz
-
         try:
             require_authz(board.authz, principal(request, x_api_key), "upload", "files")
             form = await request.form()
@@ -513,8 +551,6 @@ def create_admin_router(board: AdminBoard) -> APIRouter:
         x_api_key: str | None = Header(default=None),
     ) -> Any:
         """D6 media library listing (storage scan + index)."""
-        from phzyx.admin.auth import require_authz
-
         try:
             require_authz(board.authz, principal(request, x_api_key), "list", "files")
             items = board.media.refresh_from_storage(folder)
@@ -532,8 +568,6 @@ def create_admin_router(board: AdminBoard) -> APIRouter:
         key: str,
         x_api_key: str | None = Header(default=None),
     ) -> Any:
-        from phzyx.admin.auth import require_authz
-
         try:
             require_authz(board.authz, principal(request, x_api_key), "delete", "files")
             board.media.delete(key)
@@ -556,8 +590,6 @@ def create_admin_router(board: AdminBoard) -> APIRouter:
         body: dict[str, Any],
         x_api_key: str | None = Header(default=None),
     ) -> dict[str, Any]:
-        from phzyx.admin.settings import AdminSettings
-
         p = principal(request, x_api_key)
         # Branding changes require superuser (open demos may have no principal).
         if "branding" in body and p is not None and not bool(getattr(p, "is_superuser", False)):
@@ -591,8 +623,6 @@ def create_admin_router(board: AdminBoard) -> APIRouter:
         body: dict[str, Any],
         x_api_key: str | None = Header(default=None),
     ) -> dict[str, Any]:
-        from phzyx.admin.layouts import LayoutPrefs
-
         p = principal(request, x_api_key)
         pid = str(getattr(p, "id", "anonymous") if p is not None else "anonymous")
         prefs = LayoutPrefs.from_dict({**body, "resource": resource, "principal_id": pid})

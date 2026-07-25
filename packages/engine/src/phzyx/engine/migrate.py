@@ -34,6 +34,27 @@ CREATE TABLE IF NOT EXISTS {HISTORY_TABLE} (
 )
 """
 
+_CREATE_HISTORY_MYSQL = f"""
+CREATE TABLE IF NOT EXISTS {HISTORY_TABLE} (
+  id BIGINT NOT NULL AUTO_INCREMENT PRIMARY KEY,
+  version VARCHAR(255) NOT NULL,
+  checksum VARCHAR(64) NOT NULL,
+  applied_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  UNIQUE KEY uq_phzyx_mig_version (version)
+)
+"""
+
+_CREATE_HISTORY_MSSQL = f"""
+IF OBJECT_ID(N'dbo.{HISTORY_TABLE}', N'U') IS NULL
+CREATE TABLE dbo.[{HISTORY_TABLE}] (
+  id BIGINT IDENTITY(1,1) NOT NULL PRIMARY KEY,
+  version NVARCHAR(255) NOT NULL,
+  checksum NVARCHAR(64) NOT NULL,
+  applied_at DATETIME2 NOT NULL CONSTRAINT DF_phzyx_mig_applied DEFAULT (SYSUTCDATETIME()),
+  CONSTRAINT uq_phzyx_mig_version UNIQUE (version)
+)
+"""
+
 
 @dataclass(frozen=True, slots=True)
 class MigrationFile:
@@ -51,7 +72,14 @@ class MigrateStatus:
 
 def ensure_history_table(connection: Any, *, dialect: Dialect | str) -> None:
     d = Dialect(dialect) if not isinstance(dialect, Dialect) else dialect
-    sql = _CREATE_HISTORY_SQLITE if d is Dialect.SQLITE else _CREATE_HISTORY_PG
+    if d is Dialect.SQLITE:
+        sql = _CREATE_HISTORY_SQLITE
+    elif d is Dialect.MYSQL:
+        sql = _CREATE_HISTORY_MYSQL
+    elif d is Dialect.MSSQL:
+        sql = _CREATE_HISTORY_MSSQL
+    else:
+        sql = _CREATE_HISTORY_PG
     _exec(connection, sql)
     if hasattr(connection, "commit"):
         connection.commit()
@@ -142,13 +170,17 @@ def list_migration_files(migrations_dir: str | Path) -> list[MigrationFile]:
     return files
 
 
-def applied_versions(connection: Any) -> list[str]:
-    ensure_history_table(connection, dialect=Dialect.SQLITE)
+def applied_versions(
+    connection: Any,
+    *,
+    dialect: Dialect | str = Dialect.SQLITE,
+) -> list[str]:
+    ensure_history_table(connection, dialect=dialect)
     try:
         cur = connection.execute(f"SELECT version FROM {HISTORY_TABLE} ORDER BY version")
         return [r[0] for r in cur.fetchall()]
     except Exception:
-        # postgres cursor style
+        # postgres / mysql cursor style
         cur = connection.cursor()
         try:
             cur.execute(f"SELECT version FROM {HISTORY_TABLE} ORDER BY version")
@@ -157,9 +189,14 @@ def applied_versions(connection: Any) -> list[str]:
             cur.close()
 
 
-def migrate_status(connection: Any, migrations_dir: str | Path) -> MigrateStatus:
+def migrate_status(
+    connection: Any,
+    migrations_dir: str | Path,
+    *,
+    dialect: Dialect | str = Dialect.SQLITE,
+) -> MigrateStatus:
     files = list_migration_files(migrations_dir)
-    applied = set(applied_versions(connection))
+    applied = set(applied_versions(connection, dialect=dialect))
     pending = [f.version for f in files if f.version not in applied]
     return MigrateStatus(applied=sorted(applied), pending=pending)
 
@@ -205,7 +242,11 @@ def _load_checksums(connection: Any) -> dict[str, str]:
 
 
 def _record(connection: Any, mig: MigrationFile, *, dialect: Dialect) -> None:
-    now = datetime.now(UTC).isoformat()
+    # SQLite/Postgres accept ISO text; MySQL/MSSQL reject "+00:00" tz suffixes.
+    if dialect in {Dialect.MYSQL, Dialect.MSSQL}:
+        now = datetime.now(UTC).replace(tzinfo=None).strftime("%Y-%m-%d %H:%M:%S")
+    else:
+        now = datetime.now(UTC).isoformat()
     if dialect is Dialect.SQLITE:
         connection.execute(
             f"INSERT INTO {HISTORY_TABLE} (version, checksum, applied_at) VALUES (?, ?, ?)",
@@ -214,8 +255,9 @@ def _record(connection: Any, mig: MigrationFile, *, dialect: Dialect) -> None:
     else:
         cur = connection.cursor()
         try:
+            table = f"[{HISTORY_TABLE}]" if dialect is Dialect.MSSQL else HISTORY_TABLE
             cur.execute(
-                f"INSERT INTO {HISTORY_TABLE} (version, checksum, applied_at) VALUES (%s, %s, %s)",
+                f"INSERT INTO {table} (version, checksum, applied_at) VALUES (%s, %s, %s)",
                 (mig.version, mig.checksum, now),
             )
         finally:

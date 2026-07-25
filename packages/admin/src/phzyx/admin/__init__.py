@@ -10,20 +10,24 @@ from phzyx.admin.actions import (
     run_admin_action,
     run_bulk_action,
 )
+from phzyx.admin.async_service import AsyncAdminService
 from phzyx.admin.audit import AuditEvent, AuditLog
 from phzyx.admin.auth import AllowAll, Authz, DenyWrites, require_authz
 from phzyx.admin.errors import (
     AdminError,
+    ConflictError,
     ForbiddenError,
     NotFoundError,
     UnauthorizedError,
     ValidationAdminError,
 )
 from phzyx.admin.export_copy import copy_payload, export_csv, export_json
+from phzyx.admin.i18n import DEFAULT_CATALOG, I18n
 from phzyx.admin.identity import decode_identity, encode_identity
 from phzyx.admin.layouts import LayoutPrefs, LayoutStore
 from phzyx.admin.media import MediaItem, MediaLibrary
 from phzyx.admin.opener import OpenMeta, open_meta_for_key
+from phzyx.admin.relation_manager import RelationManager, all_relation_managers
 from phzyx.admin.resource import (
     ColumnConfig,
     FieldsetConfig,
@@ -34,6 +38,7 @@ from phzyx.admin.resource import (
     override_resource,
     wire_relations,
 )
+from phzyx.admin.search import SearchHit, global_search
 from phzyx.admin.security import (
     assert_no_mass_assignment,
     csp_headers,
@@ -62,6 +67,7 @@ from phzyx.admin.themes import (
     resolve_theme,
     theme_tokens_css,
 )
+from phzyx.admin.widgets import CountWidget, resource_count_widgets
 
 __path__ = extend_path(__path__, __name__)
 
@@ -77,13 +83,20 @@ __all__ = [
     "AdminError",
     "AdminService",
     "AdminSettings",
+    "AsyncAdminService",
     "AllowAll",
+    "CountWidget",
+    "DEFAULT_CATALOG",
+    "I18n",
+    "RelationManager",
+    "SearchHit",
     "AuditEvent",
     "AuditLog",
     "Authz",
     "AzureBlobStorage",
     "BulkAction",
     "ColumnConfig",
+    "ConflictError",
     "DenyWrites",
     "FieldsetConfig",
     "ExportPolicy",
@@ -114,10 +127,13 @@ __all__ = [
     "csrf_cookie_notes",
     "decode_identity",
     "encode_identity",
+    "all_relation_managers",
     "export_csv",
     "export_json",
     "export_xlsx",
+    "global_search",
     "guess_content_type",
+    "resource_count_widgets",
     "infer_resource",
     "is_production_like",
     "list_admin_actions",

@@ -1,8 +1,9 @@
 """Phzyx ORM — sessions and queries over Pydantic models."""
 
-from phzyx.orm.bulk import bulk_insert
+from phzyx.orm.bulk import bulk_insert, bulk_update
 from phzyx.orm.engine_async import AsyncEngine, create_async_engine
 from phzyx.orm.engine_sync import Engine, create_engine
+from phzyx.orm.errors import ConflictError, OrmError
 from phzyx.orm.expr import (
     Filter,
     OrderBy,
@@ -32,6 +33,12 @@ from phzyx.orm.keyset import (
 from phzyx.orm.relations import fetch_related, fetch_related_async
 from phzyx.orm.session_async import AsyncSession, create_async_session
 from phzyx.orm.session_sync import Session, create_session
+from phzyx.orm.soft_delete import (
+    only_deleted_filter,
+    restore,
+    soft_delete,
+    soft_delete_filter,
+)
 from phzyx.orm.sql import (
     SqlFragment,
     build_delete,
@@ -40,6 +47,7 @@ from phzyx.orm.sql import (
     build_select_by_pk,
     build_update,
 )
+from phzyx.orm.upsert import upsert
 from phzyx.schema import (
     Field,
     Model,
@@ -59,6 +67,7 @@ __version__ = "0.1.0"
 __all__ = [
     "AsyncEngine",
     "AsyncSession",
+    "ConflictError",
     "Engine",
     "Field",
     "FileField",
@@ -69,6 +78,7 @@ __all__ = [
     "ModelRegistry",
     "OnDelete",
     "OrderBy",
+    "OrmError",
     "RegistryError",
     "Session",
     "SqlFragment",
@@ -82,6 +92,7 @@ __all__ = [
     "build_update",
     "build_upload_to",
     "bulk_insert",
+    "bulk_update",
     "create_async_engine",
     "create_async_session",
     "create_engine",
@@ -107,8 +118,13 @@ __all__ = [
     "lt",
     "lte",
     "ne",
+    "only_deleted_filter",
     "order_from_columns",
     "register_model",
+    "restore",
     "sanitize_upload_key",
+    "soft_delete",
+    "soft_delete_filter",
     "unregister_model",
+    "upsert",
 ]

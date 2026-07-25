@@ -5,7 +5,7 @@ from __future__ import annotations
 import types
 from datetime import date, datetime, time
 from decimal import Decimal
-from enum import StrEnum
+from enum import Enum, StrEnum
 from typing import Any, Union, get_args, get_origin
 from uuid import UUID
 
@@ -26,12 +26,15 @@ class LogicalType(StrEnum):
     UUID = "uuid"
     DECIMAL = "decimal"
     JSON = "json"
+    # Homogeneous arrays (Postgres native; SQLite/MySQL as JSON text)
+    ARRAY = "array"
 
 
 class Dialect(StrEnum):
     POSTGRES = "postgres"
     SQLITE = "sqlite"
     MYSQL = "mysql"
+    MSSQL = "mssql"
 
 
 # Postgres physical types for each logical type.
@@ -47,6 +50,7 @@ POSTGRES_TYPES: dict[LogicalType, str] = {
     LogicalType.UUID: "UUID",
     LogicalType.DECIMAL: "NUMERIC",
     LogicalType.JSON: "JSONB",
+    LogicalType.ARRAY: "JSONB",  # prefer Field(db_type="INTEGER[]") etc.
 }
 
 # SQLite affinity / declared types (documented limits apply).
@@ -62,6 +66,7 @@ SQLITE_TYPES: dict[LogicalType, str] = {
     LogicalType.UUID: "TEXT",
     LogicalType.DECIMAL: "TEXT",
     LogicalType.JSON: "TEXT",
+    LogicalType.ARRAY: "TEXT",
 }
 
 # MySQL / MariaDB physical types (baseline; MariaDB DSN aliases to mysql for now).
@@ -77,6 +82,7 @@ MYSQL_TYPES: dict[LogicalType, str] = {
     LogicalType.UUID: "CHAR(36)",
     LogicalType.DECIMAL: "DECIMAL(38, 9)",
     LogicalType.JSON: "JSON",
+    LogicalType.ARRAY: "JSON",
 }
 
 SQLITE_LIMITS = (
@@ -87,6 +93,28 @@ SQLITE_LIMITS = (
 MYSQL_LIMITS = (
     "MySQL has no native UUID type; Phzyx stores UUID as CHAR(36). "
     "BOOL is TINYINT(1). JSON is native (5.7+/8.0+). MariaDB DSNs map to Dialect.MYSQL for now."
+)
+
+# Microsoft SQL Server physical types (T-SQL baseline, 2017+).
+MSSQL_TYPES: dict[LogicalType, str] = {
+    LogicalType.STR: "NVARCHAR(MAX)",
+    LogicalType.INT: "BIGINT",
+    LogicalType.FLOAT: "FLOAT",
+    LogicalType.BOOL: "BIT",
+    LogicalType.BYTES: "VARBINARY(MAX)",
+    LogicalType.DATETIME: "DATETIME2(6)",
+    LogicalType.DATE: "DATE",
+    LogicalType.TIME: "TIME(6)",
+    LogicalType.UUID: "UNIQUEIDENTIFIER",
+    LogicalType.DECIMAL: "DECIMAL(38, 9)",
+    LogicalType.JSON: "NVARCHAR(MAX)",
+    LogicalType.ARRAY: "NVARCHAR(MAX)",
+}
+
+MSSQL_LIMITS = (
+    "SQL Server: BOOL is BIT; JSON/array stored as NVARCHAR(MAX); UUID is UNIQUEIDENTIFIER. "
+    "Identity PKs use IDENTITY(1,1); explicit seed ids need SET IDENTITY_INSERT. "
+    "Indexed string columns use NVARCHAR(255) instead of MAX."
 )
 
 
@@ -118,7 +146,14 @@ def infer_logical_type(annotation: Any) -> LogicalType:
     if ann is dict or origin is dict:
         return LogicalType.JSON
     if ann is list or origin is list:
-        return LogicalType.JSON
+        # list[T] → ARRAY logical (emit JSONB/JSON unless db_type override)
+        return LogicalType.ARRAY
+    # str/int Enums store as text/int + CHECK of allowed values
+    if isinstance(ann, type) and issubclass(ann, Enum):
+        sample = next(iter(ann), None)
+        if sample is not None and isinstance(sample.value, int):
+            return LogicalType.INT
+        return LogicalType.STR
 
     # ForwardRef / string annotations often remain strings on models.
     if isinstance(ann, str):
@@ -128,22 +163,50 @@ def infer_logical_type(annotation: Any) -> LogicalType:
     return _from_name(name)
 
 
+def enum_values(annotation: Any) -> tuple[Any, ...] | None:
+    """Return enum member values if annotation is an Enum type."""
+    ann = _unwrap_optional(annotation)
+    if isinstance(ann, type) and issubclass(ann, Enum):
+        return tuple(m.value for m in ann)
+    return None
+
+
+def field_max_length(field_info: Any) -> int | None:
+    """Extract max_length from Pydantic FieldInfo metadata if present."""
+    meta = getattr(field_info, "metadata", None) or ()
+    for item in meta:
+        ml = getattr(item, "max_length", None)
+        if ml is not None:
+            return int(ml)
+    # pydantic v2 sometimes exposes via json_schema_extra / annotation
+    return None
+
+
 def physical_type(
     logical: LogicalType,
     dialect: Dialect | str,
     *,
     db_type: str | None = None,
+    max_length: int | None = None,
 ) -> str:
     """Resolve physical SQL type; ``db_type`` overrides the dialect map."""
     if db_type:
         return db_type
     d = Dialect(dialect) if not isinstance(dialect, Dialect) else dialect
+    if logical is LogicalType.STR and max_length is not None and max_length > 0:
+        if d is Dialect.SQLITE:
+            return "TEXT"
+        if d is Dialect.MSSQL:
+            return f"NVARCHAR({int(max_length)})"
+        return f"VARCHAR({int(max_length)})"
     if d is Dialect.POSTGRES:
         return POSTGRES_TYPES[logical]
     if d is Dialect.SQLITE:
         return SQLITE_TYPES[logical]
     if d is Dialect.MYSQL:
         return MYSQL_TYPES[logical]
+    if d is Dialect.MSSQL:
+        return MSSQL_TYPES[logical]
     raise SchemaError(f"unknown dialect: {dialect!r}")
 
 

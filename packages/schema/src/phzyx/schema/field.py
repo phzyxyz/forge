@@ -48,6 +48,17 @@ class ColumnMeta:
     admin_readonly: bool = False
     admin_exclude: bool = False
     file_kind: FileKind | None = None
+    # None = default heuristic at manifest time (single int PK → True).
+    autoincrement: bool | None = None
+    # ORM-side timestamp helpers (also emit server defaults when possible).
+    auto_now_add: bool = False
+    auto_now: bool = False
+    # Optimistic concurrency column (increment on update; WHERE old version).
+    optimistic: bool = False
+    # Generated column SQL expression (dialect-specific body).
+    generated: str | None = None
+    # MySQL-style ON UPDATE for timestamps (also used as hint for auto_now).
+    on_update: str | None = None
 
     def to_dict(self) -> dict[str, Any]:
         """Serialize for ``json_schema_extra`` storage."""
@@ -69,6 +80,10 @@ class ColumnMeta:
         if file_kind is not None and file_kind not in ("file", "image"):
             raise ValueError(f"invalid file_kind in ColumnMeta: {file_kind!r}")
 
+        autoincrement = data.get("autoincrement")
+        if autoincrement is not None:
+            autoincrement = bool(autoincrement)
+
         return cls(
             primary_key=bool(data.get("primary_key", False)),
             unique=bool(data.get("unique", False)),
@@ -83,6 +98,12 @@ class ColumnMeta:
             admin_readonly=bool(data.get("admin_readonly", False)),
             admin_exclude=bool(data.get("admin_exclude", False)),
             file_kind=file_kind,
+            autoincrement=autoincrement,
+            auto_now_add=bool(data.get("auto_now_add", False)),
+            auto_now=bool(data.get("auto_now", False)),
+            optimistic=bool(data.get("optimistic", False)),
+            generated=data.get("generated"),
+            on_update=data.get("on_update"),
         )
 
 
@@ -107,6 +128,12 @@ def Field(  # noqa: N802 — public API mirrors pydantic.Field
     admin_readonly: bool = False,
     admin_exclude: bool = False,
     file_kind: FileKind | None = None,
+    autoincrement: bool | None = None,
+    auto_now_add: bool = False,
+    auto_now: bool = False,
+    optimistic: bool = False,
+    generated: str | None = None,
+    on_update: str | None = None,
     **kwargs: Any,
 ) -> Any:
     """Declare a model field with optional Phzyx column metadata.
@@ -139,6 +166,18 @@ def Field(  # noqa: N802 — public API mirrors pydantic.Field
         AdminBoard presentation and export hints.
     file_kind:
         ``"file"`` or ``"image"`` when the column stores a storage key (not bytes).
+    autoincrement:
+        Integer PK identity. ``None`` defaults to True for a single int PK.
+    auto_now_add:
+        Set UTC timestamp on insert when value is missing.
+    auto_now:
+        Set UTC timestamp on every update.
+    optimistic:
+        Version column for optimistic concurrency (int; incremented on update).
+    generated:
+        SQL expression for a generated column (e.g. ``price * qty``).
+    on_update:
+        SQL ON UPDATE clause body (e.g. ``CURRENT_TIMESTAMP`` for MySQL).
     """
     if on_delete is not None and foreign_key is None:
         raise ValueError("on_delete requires foreign_key to be set")
@@ -148,6 +187,12 @@ def Field(  # noqa: N802 — public API mirrors pydantic.Field
 
     if renamed_from is not None and not str(renamed_from).strip():
         raise ValueError("renamed_from must be a non-empty column name when set")
+
+    if auto_now_add and auto_now:
+        raise ValueError("auto_now_add and auto_now are mutually exclusive")
+
+    if auto_now and on_update is None:
+        on_update = "CURRENT_TIMESTAMP"
 
     meta = ColumnMeta(
         primary_key=primary_key,
@@ -163,6 +208,12 @@ def Field(  # noqa: N802 — public API mirrors pydantic.Field
         admin_readonly=admin_readonly,
         admin_exclude=admin_exclude,
         file_kind=file_kind,
+        autoincrement=autoincrement,
+        auto_now_add=auto_now_add,
+        auto_now=auto_now,
+        optimistic=optimistic,
+        generated=generated,
+        on_update=on_update,
     )
 
     existing_extra = kwargs.pop("json_schema_extra", None)

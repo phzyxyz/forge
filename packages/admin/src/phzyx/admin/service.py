@@ -2,16 +2,27 @@
 
 from __future__ import annotations
 
+import json
 from collections.abc import Sequence
 from dataclasses import dataclass, field
 from typing import Any
 
+from phzyx.admin.actions import (
+    list_admin_actions,
+    list_bulk_actions,
+    run_admin_action,
+    run_bulk_action,
+)
 from phzyx.admin.audit import AuditLog
 from phzyx.admin.auth import AllowAll, AllowAllFields, Authz, FieldAuthz, require_authz
-from phzyx.admin.errors import NotFoundError, ValidationAdminError
+from phzyx.admin.errors import ConflictError, NotFoundError, ValidationAdminError
 from phzyx.admin.export_copy import copy_payload, export_csv, export_json
+from phzyx.admin.filters import FILTER_OPS, build_where
+from phzyx.admin.i18n import I18n
 from phzyx.admin.identity import decode_identity, encode_identity
+from phzyx.admin.relation_manager import relation_managers_for
 from phzyx.admin.resource import ResourceConfig
+from phzyx.admin.search import global_search
 from phzyx.admin.security import assert_no_mass_assignment
 from phzyx.admin.stream_export import (
     DEFAULT_EXPORT_POLICY,
@@ -21,41 +32,15 @@ from phzyx.admin.stream_export import (
     stream_json_array,
     stream_jsonl,
 )
-from phzyx.orm.expr import (
-    eq,
-    gt,
-    gte,
-    ilike,
-    in_,
-    is_not_null,
-    is_null,
-    like,
-    lt,
-    lte,
-    ne,
-    or_,
-)
+from phzyx.admin.unique_checks import raise_if_unique_violations
+from phzyx.admin.widgets import resource_count_widgets, widgets_to_dict
+from phzyx.orm.errors import ConflictError as OrmConflict
+from phzyx.orm.expr import eq
+from phzyx.orm.files import sanitize_upload_key
 from phzyx.orm.keyset import default_order_columns, order_from_columns
 from phzyx.orm.session_sync import Session
-
-_FILTER_OPS = frozenset(
-    {
-        "eq",
-        "ne",
-        "lt",
-        "lte",
-        "gt",
-        "gte",
-        "like",
-        "ilike",
-        "contains",
-        "startswith",
-        "endswith",
-        "in",
-        "is_null",
-        "is_not_null",
-    }
-)
+from phzyx.orm.soft_delete import soft_delete
+from phzyx.schema.model import get_table_info
 
 
 @dataclass
@@ -79,9 +64,66 @@ class AdminService:
     authz: Authz = field(default_factory=AllowAll)
     field_authz: FieldAuthz = field(default_factory=AllowAllFields)
     audit: AuditLog | None = None
+    storage: Any | None = None
 
     def list_resources(self, *, principal: Any | None = None) -> list[dict[str, Any]]:
         return [self.public_schema(r.name, principal=principal) for r in self.resources.values()]
+
+    def global_search(
+        self,
+        query: str,
+        *,
+        limit_per_resource: int = 5,
+        principal: Any | None = None,
+    ) -> list[dict[str, Any]]:
+        """⌘K-style search across searchable columns of all resources."""
+        # Authz: only searchable resources the principal may list
+        allowed = {
+            n: r for n, r in self.resources.items() if self.authz.authorize(principal, "list", n)
+        }
+        hits = global_search(
+            self.session,
+            allowed,
+            query,
+            limit_per_resource=limit_per_resource,
+            dialect_ilike=self.session.dialect.value != "sqlite",
+        )
+        return [
+            {
+                "resource": h.resource,
+                "identity": h.identity,
+                "label": h.label,
+                "score": h.score,
+            }
+            for h in hits
+        ]
+
+    def dashboard_widgets(
+        self,
+        *,
+        principal: Any | None = None,
+    ) -> list[dict[str, Any]]:
+        """Simple count widgets for the admin home dashboard."""
+        allowed = {
+            n: r for n, r in self.resources.items() if self.authz.authorize(principal, "list", n)
+        }
+        return widgets_to_dict(resource_count_widgets(self.session, allowed))
+
+    def i18n_catalog(self, locale: str = "en") -> dict[str, str]:
+        return I18n(locale=locale).catalog()
+
+    def relation_managers(self, name: str) -> list[dict[str, Any]]:
+        res = self.get_resource(name)
+        return [
+            {
+                "name": m.name,
+                "parent": m.parent_resource,
+                "relation": m.relation.name,
+                "child": m.child_resource,
+                "kind": m.relation.kind,
+            }
+            for m in relation_managers_for(res)
+        ]
 
     def get_resource(self, name: str) -> ResourceConfig:
         if name not in self.resources:
@@ -99,7 +141,7 @@ class AdminService:
                 continue
             cols.append(c)
         schema["columns"] = cols
-        schema["filter_ops"] = sorted(_FILTER_OPS)
+        schema["filter_ops"] = sorted(FILTER_OPS)
         return schema
 
     def _build_where(
@@ -109,85 +151,8 @@ class AdminService:
         search: str | None = None,
         filters: dict[str, str] | None = None,
     ) -> list[Any]:
-        where: list[Any] = []
-        if search and res.searchable:
-            q = f"%{search}%"
-            parts = [ilike(col, q) for col in res.searchable]
-            where.append(parts[0] if len(parts) == 1 else or_(*parts))
-        if filters:
-            allowed = set(res.filterable) | {c.name for c in res.columns if c.filterable}
-            for key, raw in filters.items():
-                col, op = self._parse_filter_key(key)
-                if col not in allowed:
-                    continue
-                cfg = res.column(col)
-                if cfg is None:
-                    continue
-                filt = self._filter_expr(col, op, raw, cfg.filter_type)
-                if filt is not None:
-                    where.append(filt)
-        return where
-
-    def _parse_filter_key(self, key: str) -> tuple[str, str]:
-        """field or field__op → (field, op). Default op eq."""
-        if "__" in key:
-            col, op = key.rsplit("__", 1)
-            op = op.lower()
-            if op in _FILTER_OPS:
-                return col, op
-        # value form op:value handled in _filter_expr when op is eq
-        return key, "eq"
-
-    def _filter_expr(self, col: str, op: str, raw: str, filter_type: str) -> Any | None:
-        # Allow filter.field=contains:foo shorthand when op is eq
-        if op == "eq" and ":" in raw:
-            maybe_op, rest = raw.split(":", 1)
-            if maybe_op.lower() in _FILTER_OPS:
-                op, raw = maybe_op.lower(), rest
-        if op in {"is_null", "isnull"}:
-            return is_null(col)
-        if op in {"is_not_null", "isnotnull"}:
-            return is_not_null(col)
-        if op == "in":
-            parts = [p.strip() for p in raw.split(",") if p.strip() != ""]
-            vals: list[Any] = []
-            for p in parts:
-                vals.append(self._coerce_filter_val(p, filter_type))
-            return in_(col, vals)
-        val = self._coerce_filter_val(raw, filter_type)
-        if op == "eq":
-            return eq(col, val)
-        if op == "ne":
-            return ne(col, val)
-        if op == "lt":
-            return lt(col, val)
-        if op == "lte":
-            return lte(col, val)
-        if op == "gt":
-            return gt(col, val)
-        if op == "gte":
-            return gte(col, val)
-        if op == "like":
-            return like(col, str(val))
-        if op == "ilike":
-            return ilike(col, str(val))
-        if op == "contains":
-            return ilike(col, f"%{val}%")
-        if op == "startswith":
-            return ilike(col, f"{val}%")
-        if op == "endswith":
-            return ilike(col, f"%{val}")
-        return eq(col, val)
-
-    def _coerce_filter_val(self, raw: str, filter_type: str) -> Any:
-        if filter_type == "bool":
-            return raw.lower() in {"1", "true", "yes", "on"}
-        if filter_type == "number":
-            try:
-                return int(raw) if "." not in raw else float(raw)
-            except ValueError:
-                return raw
-        return raw
+        """Build list WHERE clause (includes soft-delete hide by default)."""
+        return build_where(res, search=search, filters=filters, hide_soft_deleted=True)
 
     def list(
         self,
@@ -253,8 +218,6 @@ class AdminService:
         *,
         principal: Any | None = None,
     ) -> dict[str, Any]:
-        from phzyx.admin.actions import run_bulk_action
-
         return run_bulk_action(self, name, action, identities, principal=principal)
 
     def run_action(
@@ -266,21 +229,15 @@ class AdminService:
         principal: Any | None = None,
     ) -> dict[str, Any]:
         """Run row/bulk server action (Diamond D5)."""
-        from phzyx.admin.actions import run_admin_action
-
         return run_admin_action(self, name, action, identities, principal=principal)
 
     def list_bulk_actions(self, name: str) -> list[dict[str, Any]]:
-        from phzyx.admin.actions import list_bulk_actions
-
         res = self.get_resource(name)
         has_active = any(c.name == "active" for c in res.columns)
         return list_bulk_actions(name, has_active)
 
     def list_actions(self, name: str, *, scope: str | None = None) -> list[dict[str, Any]]:
         """List action catalog for SPA menus (Diamond D5)."""
-        from phzyx.admin.actions import list_admin_actions
-
         res = self.get_resource(name)
         has_active = any(c.name == "active" for c in res.columns)
         return list_admin_actions(name, has_active=has_active, scope=scope)
@@ -587,27 +544,54 @@ class AdminService:
             raise ValidationAdminError("resource is readonly")
         clean = assert_no_mass_assignment(res, data, partial=False)
         clean = self._filter_write(res, clean, principal=principal)
-        # Autoincrement single int PK
+        table_info = get_table_info(res.model)
+        for col_name, meta in table_info.columns.items():
+            if meta.generated:
+                clean.pop(col_name, None)
+        # Autoincrement PK: omit so ORM/DB generates (never app max+1).
+        ai_pks: set[str] = set()
         for pk in res.primary_key:
             col = res.column(pk)
             if col and col.autoincrement and (pk not in clean or clean.get(pk) in (None, "")):
-                clean[pk] = self._next_pk(res, pk)
+                clean.pop(pk, None)
+                ai_pks.add(pk)
         try:
             obj = res.model.model_validate(clean)
         except Exception as exc:
-            raise _validation_error(exc) from exc
-        self.session.add(obj)
-        self.session.commit()
+            # Allow missing AI PK on required-int models; still require other fields.
+            missing = [
+                fname
+                for fname, finfo in res.model.model_fields.items()
+                if fname not in ai_pks and finfo.is_required() and fname not in clean
+            ]
+            if missing or not ai_pks:
+                raise _validation_error(exc) from exc
+            try:
+                obj = res.model.model_construct(**clean)
+            except Exception as exc2:
+                raise _validation_error(exc2) from exc2
+        raise_if_unique_violations(
+            res.model,
+            clean,
+            query=lambda where: self.session.query(res.model, where=where, limit=5),
+        )
+        try:
+            obj = self.session.add(obj)
+            self.session.commit()
+        except Exception as exc:
+            self.session.rollback()
+            # Race / dialect IntegrityError → same field-level shape when possible.
+            msg = str(exc).lower()
+            if "unique" in msg or "duplicate" in msg or "integrity" in msg:
+                raise ValidationAdminError(
+                    "Validation failed",
+                    fields={"_": "unique constraint violated"},
+                ) from exc
+            raise
         if self.audit:
             pid = getattr(principal, "id", None) if principal else None
             self.audit.record("create", name, principal_id=pid)
         return self._serialize(res, obj, principal=principal)
-
-    def _next_pk(self, res: ResourceConfig, pk: str) -> int:
-        rows = self.session.query(res.model, limit=50_000)
-        if not rows:
-            return 1
-        return max(int(getattr(r, pk) or 0) for r in rows) + 1
 
     def update(
         self,
@@ -634,11 +618,28 @@ class AdminService:
             res.model.model_validate(merged)
         except Exception as exc:
             raise _validation_error(exc) from exc
+        exclude = key
+        raise_if_unique_violations(
+            res.model,
+            {**merged, **clean},
+            query=lambda where: self.session.query(res.model, where=where, limit=5),
+            exclude_key=exclude,
+        )
         try:
             updated = self.session.update(obj, **clean)
+            self.session.commit()
+        except OrmConflict as exc:
+            self.session.rollback()
+            raise ConflictError(str(exc), resource=name, identity=identity) from exc
         except Exception as exc:
+            self.session.rollback()
+            msg = str(exc).lower()
+            if "unique" in msg or "duplicate" in msg or "integrity" in msg:
+                raise ValidationAdminError(
+                    "Validation failed",
+                    fields={"_": "unique constraint violated"},
+                ) from exc
             raise _validation_error(exc) from exc
-        self.session.commit()
         if self.audit:
             pid = getattr(principal, "id", None) if principal else None
             self.audit.record("update", name, principal_id=pid, identity=identity)
@@ -650,6 +651,7 @@ class AdminService:
         identity: str,
         *,
         principal: Any | None = None,
+        soft: bool | None = None,
     ) -> None:
         res = self.get_resource(name)
         require_authz(self.authz, principal, "delete", name)
@@ -659,11 +661,46 @@ class AdminService:
         obj = self.session.get(res.model, key)
         if obj is None:
             raise NotFoundError(f"{name} {identity} not found")
-        self.session.delete(obj)
+        use_soft = soft if soft is not None else ("deleted_at" in res.model.model_fields)
+        if use_soft and "deleted_at" in res.model.model_fields:
+            soft_delete(self.session, obj, column="deleted_at")
+        else:
+            self.session.delete(obj)
         self.session.commit()
         if self.audit:
             pid = getattr(principal, "id", None) if principal else None
             self.audit.record("delete", name, principal_id=pid, identity=identity)
+
+    def presign_upload(
+        self,
+        key: str,
+        *,
+        expires_in: int = 3600,
+        content_type: str | None = None,
+    ) -> dict[str, Any]:
+        """Return a presigned PUT target for direct-to-storage uploads."""
+        store = getattr(self, "storage", None)
+        if store is None:
+            raise ValidationAdminError("no storage backend configured")
+        safe = sanitize_upload_key(key)
+        if hasattr(store, "presign_put"):
+            url = store.presign_put(safe, expires_in=expires_in, content_type=content_type)
+            return {"method": "PUT", "url": url, "key": safe, "expires_in": expires_in}
+        if hasattr(store, "presign"):
+            # S3-style get_object method name override for put
+            try:
+                url = store.presign(safe, expires_in=expires_in, method="put_object")
+            except TypeError:
+                url = store.presign(safe, expires_in=expires_in)
+            return {"method": "PUT", "url": url, "key": safe, "expires_in": expires_in}
+        # Local/memory: client must POST bytes to admin media upload endpoint
+        return {
+            "method": "POST",
+            "url": f"/admin/api/v1/media/upload?key={safe}",
+            "key": safe,
+            "expires_in": expires_in,
+            "note": "local storage — use admin media upload API",
+        }
 
     def export(
         self,
@@ -688,8 +725,6 @@ class AdminService:
         items = listed.items
         if fmt == "json":
             if include:
-                import json as _json
-
                 # Keep exportable columns + nested relations (not stripped by rows_for_export)
                 expanded = []
                 for row in items:
@@ -702,7 +737,7 @@ class AdminService:
                         base["_relations"] = attached["_relations"]
                     base.pop("_identity", None)
                     expanded.append(base)
-                body = _json.dumps(expanded, indent=2, default=str)
+                body = json.dumps(expanded, indent=2, default=str)
             else:
                 body = export_json(res, items)
             media = "application/json"

@@ -1,0 +1,336 @@
+# Phzyx local DB matrix — OrbStack / Docker
+#
+# Famous SQL engines Phzyx supports today, each with latest + last 3 major lines:
+#   PostgreSQL 18, 17, 16, 15
+#   MySQL      9,  8.4, 8.0          (no clean 4th modern major on arm64)
+#   MariaDB    11.8, 11.4, 10.11, 10.6
+#   SQL Server 2025, 2022, 2019, 2017
+#
+# SQLite is in-process (no container). Cloud providers are out of scope here.
+#
+# Usage (from repo root):
+#   ./scripts/dbs/up.sh              # start all, wait healthy
+#   ./scripts/dbs/up.sh postgres     # family only: postgres|mysql|mariadb|mssql
+#   ./scripts/dbs/status.sh
+#   ./scripts/dbs/test.sh            # deep matrix pytest
+#   ./scripts/dbs/down.sh            # stop (keeps volumes)
+#   ./scripts/dbs/down.sh --wipe     # stop + delete volumes
+#
+# Project name groups containers under "phzyx-dbs" in OrbStack/Docker Desktop.
+
+name: phzyx-dbs
+
+x-pg-env: &pg-env
+  POSTGRES_USER: phzyx
+  POSTGRES_PASSWORD: phzyx
+  POSTGRES_DB: phzyx
+
+x-mysql-env: &mysql-env
+  MYSQL_ROOT_PASSWORD: phzyx
+  MYSQL_DATABASE: phzyx
+  MYSQL_USER: phzyx
+  MYSQL_PASSWORD: phzyx
+
+x-mariadb-env: &mariadb-env
+  MARIADB_ROOT_PASSWORD: phzyx
+  MARIADB_DATABASE: phzyx
+  MARIADB_USER: phzyx
+  MARIADB_PASSWORD: phzyx
+
+# SA password must meet SQL Server complexity rules.
+x-mssql-env: &mssql-env
+  ACCEPT_EULA: "Y"
+  MSSQL_SA_PASSWORD: "Phzyx_Sql_S3rver!"
+  MSSQL_PID: Developer
+
+services:
+  # ── PostgreSQL (flagship) ──────────────────────────────────────────────
+  pg-18:
+    image: postgres:18
+    container_name: phzyx-pg-18
+    environment: *pg-env
+    ports: ["5518:5432"]
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U phzyx -d phzyx"]
+      interval: 3s
+      timeout: 3s
+      retries: 30
+      start_period: 5s
+    # PG 18+ official image expects mount at /var/lib/postgresql (not .../data).
+    volumes: [pg18-data:/var/lib/postgresql]
+    restart: "no"
+    mem_limit: 384m
+
+  pg-17:
+    image: postgres:17
+    container_name: phzyx-pg-17
+    environment: *pg-env
+    ports: ["5517:5432"]
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U phzyx -d phzyx"]
+      interval: 3s
+      timeout: 3s
+      retries: 30
+      start_period: 5s
+    volumes: [pg17-data:/var/lib/postgresql/data]
+    restart: "no"
+    mem_limit: 384m
+
+  pg-16:
+    image: postgres:16
+    container_name: phzyx-pg-16
+    environment: *pg-env
+    ports: ["5516:5432"]
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U phzyx -d phzyx"]
+      interval: 3s
+      timeout: 3s
+      retries: 30
+      start_period: 5s
+    volumes: [pg16-data:/var/lib/postgresql/data]
+    restart: "no"
+    mem_limit: 384m
+
+  pg-15:
+    image: postgres:15
+    container_name: phzyx-pg-15
+    environment: *pg-env
+    ports: ["5515:5432"]
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U phzyx -d phzyx"]
+      interval: 3s
+      timeout: 3s
+      retries: 30
+      start_period: 5s
+    volumes: [pg15-data:/var/lib/postgresql/data]
+    restart: "no"
+    mem_limit: 384m
+
+  # ── MySQL ──────────────────────────────────────────────────────────────
+  mysql-9:
+    image: mysql:9
+    container_name: phzyx-mysql-9
+    environment: *mysql-env
+    ports: ["3609:3306"]
+    command:
+      - --character-set-server=utf8mb4
+      - --collation-server=utf8mb4_unicode_ci
+    healthcheck:
+      test: ["CMD", "mysqladmin", "ping", "-h", "127.0.0.1", "-uroot", "-pphzyx"]
+      interval: 5s
+      timeout: 5s
+      retries: 40
+      start_period: 25s
+    volumes: [mysql9-data:/var/lib/mysql]
+    restart: "no"
+    mem_limit: 512m
+
+  mysql-84:
+    image: mysql:8.4
+    container_name: phzyx-mysql-84
+    environment: *mysql-env
+    ports: ["3608:3306"]
+    command:
+      - --character-set-server=utf8mb4
+      - --collation-server=utf8mb4_unicode_ci
+    healthcheck:
+      test: ["CMD", "mysqladmin", "ping", "-h", "127.0.0.1", "-uroot", "-pphzyx"]
+      interval: 5s
+      timeout: 5s
+      retries: 40
+      start_period: 25s
+    volumes: [mysql84-data:/var/lib/mysql]
+    restart: "no"
+    mem_limit: 512m
+
+  mysql-80:
+    image: mysql:8.0
+    container_name: phzyx-mysql-80
+    environment: *mysql-env
+    ports: ["3600:3306"]
+    command:
+      - --character-set-server=utf8mb4
+      - --collation-server=utf8mb4_unicode_ci
+    healthcheck:
+      test: ["CMD", "mysqladmin", "ping", "-h", "127.0.0.1", "-uroot", "-pphzyx"]
+      interval: 5s
+      timeout: 5s
+      retries: 40
+      start_period: 30s
+    volumes: [mysql80-data:/var/lib/mysql]
+    restart: "no"
+    mem_limit: 512m
+
+  # ── MariaDB (not marketed as MySQL) ────────────────────────────────────
+  mariadb-118:
+    image: mariadb:11.8
+    container_name: phzyx-mariadb-118
+    environment: *mariadb-env
+    ports: ["3718:3306"]
+    command:
+      - --character-set-server=utf8mb4
+      - --collation-server=utf8mb4_unicode_ci
+    healthcheck:
+      test: ["CMD", "healthcheck.sh", "--connect", "--innodb_initialized"]
+      interval: 5s
+      timeout: 5s
+      retries: 40
+      start_period: 25s
+    volumes: [mariadb118-data:/var/lib/mysql]
+    restart: "no"
+    mem_limit: 512m
+
+  mariadb-114:
+    image: mariadb:11.4
+    container_name: phzyx-mariadb-114
+    environment: *mariadb-env
+    ports: ["3714:3306"]
+    command:
+      - --character-set-server=utf8mb4
+      - --collation-server=utf8mb4_unicode_ci
+    healthcheck:
+      test: ["CMD", "healthcheck.sh", "--connect", "--innodb_initialized"]
+      interval: 5s
+      timeout: 5s
+      retries: 40
+      start_period: 25s
+    volumes: [mariadb114-data:/var/lib/mysql]
+    restart: "no"
+    mem_limit: 512m
+
+  mariadb-1011:
+    image: mariadb:10.11
+    container_name: phzyx-mariadb-1011
+    environment: *mariadb-env
+    ports: ["3711:3306"]
+    command:
+      - --character-set-server=utf8mb4
+      - --collation-server=utf8mb4_unicode_ci
+    healthcheck:
+      test: ["CMD", "healthcheck.sh", "--connect", "--innodb_initialized"]
+      interval: 5s
+      timeout: 5s
+      retries: 40
+      start_period: 25s
+    volumes: [mariadb1011-data:/var/lib/mysql]
+    restart: "no"
+    mem_limit: 512m
+
+  mariadb-106:
+    image: mariadb:10.6
+    container_name: phzyx-mariadb-106
+    environment: *mariadb-env
+    ports: ["3706:3306"]
+    command:
+      - --character-set-server=utf8mb4
+      - --collation-server=utf8mb4_unicode_ci
+    # 10.6 may lack healthcheck.sh; use mysqladmin
+    healthcheck:
+      test: ["CMD", "mysqladmin", "ping", "-h", "127.0.0.1", "-uroot", "-pphzyx"]
+      interval: 5s
+      timeout: 5s
+      retries: 40
+      start_period: 30s
+    volumes: [mariadb106-data:/var/lib/mysql]
+    restart: "no"
+    mem_limit: 512m
+
+  # ── Microsoft SQL Server ───────────────────────────────────────────────
+  # Official images may be amd64-only; OrbStack runs them via emulation.
+  # After healthy, ./scripts/dbs/up.sh creates database `phzyx` (see mssql_ensure_db).
+  mssql-2025:
+    image: mcr.microsoft.com/mssql/server:2025-latest
+    container_name: phzyx-mssql-2025
+    platform: linux/amd64
+    environment: *mssql-env
+    ports: ["1425:1433"]
+    healthcheck:
+      test:
+        [
+          "CMD-SHELL",
+          "/opt/mssql-tools18/bin/sqlcmd -S localhost -U sa -P \"$$MSSQL_SA_PASSWORD\" -C -Q \"SELECT 1\" || /opt/mssql-tools/bin/sqlcmd -S localhost -U sa -P \"$$MSSQL_SA_PASSWORD\" -Q \"SELECT 1\" || exit 1",
+        ]
+      interval: 10s
+      timeout: 5s
+      retries: 40
+      start_period: 40s
+    volumes: [mssql2025-data:/var/opt/mssql]
+    restart: "no"
+    mem_limit: 2g
+
+  mssql-2022:
+    image: mcr.microsoft.com/mssql/server:2022-latest
+    container_name: phzyx-mssql-2022
+    platform: linux/amd64
+    environment: *mssql-env
+    ports: ["1422:1433"]
+    healthcheck:
+      test:
+        [
+          "CMD-SHELL",
+          "/opt/mssql-tools18/bin/sqlcmd -S localhost -U sa -P \"$$MSSQL_SA_PASSWORD\" -C -Q \"SELECT 1\" || /opt/mssql-tools/bin/sqlcmd -S localhost -U sa -P \"$$MSSQL_SA_PASSWORD\" -Q \"SELECT 1\" || exit 1",
+        ]
+      interval: 10s
+      timeout: 5s
+      retries: 40
+      start_period: 40s
+    volumes: [mssql2022-data:/var/opt/mssql]
+    restart: "no"
+    mem_limit: 2g
+
+  mssql-2019:
+    image: mcr.microsoft.com/mssql/server:2019-latest
+    container_name: phzyx-mssql-2019
+    platform: linux/amd64
+    environment: *mssql-env
+    ports: ["1419:1433"]
+    healthcheck:
+      test:
+        [
+          "CMD-SHELL",
+          "/opt/mssql-tools18/bin/sqlcmd -S localhost -U sa -P \"$$MSSQL_SA_PASSWORD\" -C -Q \"SELECT 1\" || /opt/mssql-tools/bin/sqlcmd -S localhost -U sa -P \"$$MSSQL_SA_PASSWORD\" -Q \"SELECT 1\" || exit 1",
+        ]
+      interval: 10s
+      timeout: 5s
+      retries: 40
+      start_period: 45s
+    volumes: [mssql2019-data:/var/opt/mssql]
+    restart: "no"
+    mem_limit: 2g
+
+  mssql-2017:
+    image: mcr.microsoft.com/mssql/server:2017-latest
+    container_name: phzyx-mssql-2017
+    platform: linux/amd64
+    environment: *mssql-env
+    ports: ["1417:1433"]
+    healthcheck:
+      test:
+        [
+          "CMD-SHELL",
+          "/opt/mssql-tools/bin/sqlcmd -S localhost -U sa -P \"$$MSSQL_SA_PASSWORD\" -Q \"SELECT 1\" || /opt/mssql-tools18/bin/sqlcmd -S localhost -U sa -P \"$$MSSQL_SA_PASSWORD\" -C -Q \"SELECT 1\" || exit 1",
+        ]
+      interval: 10s
+      timeout: 5s
+      retries: 40
+      start_period: 50s
+    volumes: [mssql2017-data:/var/opt/mssql]
+    restart: "no"
+    mem_limit: 2g
+
+volumes:
+  pg18-data:
+  pg17-data:
+  pg16-data:
+  pg15-data:
+  mysql9-data:
+  mysql84-data:
+  mysql80-data:
+  mariadb118-data:
+  mariadb114-data:
+  mariadb1011-data:
+  mariadb106-data:
+  mssql2025-data:
+  mssql2022-data:
+  mssql2019-data:
+  mssql2017-data:

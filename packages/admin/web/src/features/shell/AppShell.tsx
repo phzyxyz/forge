@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from "react";
-import { useQueryClient } from "@tanstack/react-query";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
 import type { ResourceSchema } from "../../shared/api/types";
 import { FORBIDDEN_EVENT } from "../../shared/api/client";
 import { applyTheme, useShellStore } from "../../shared/stores/shell";
@@ -11,13 +11,15 @@ import {
   IconTable,
 } from "../../shared/ui/Icons";
 import { useSessionStore } from "../auth/sessionStore";
-import { OverviewPage } from "../overview/OverviewPage";
-import { ResourcePage } from "../resources/ResourcePage";
 import { MediaPage } from "../media/MediaPage";
+import { OverviewPage } from "../overview/OverviewPage";
+import { fetchI18nCatalog } from "../resources/api";
+import { ResourcePage } from "../resources/ResourcePage";
 import { SchemaStatusPage } from "../schema/SchemaStatusPage";
 import { SettingsPage } from "../settings/SettingsPage";
 import { AuditPage } from "../trust/AuditPage";
 import { ForbiddenBanner } from "../trust/ForbiddenBanner";
+import { CommandPalette } from "./CommandPalette";
 
 export function AppShell({
   resources,
@@ -48,11 +50,22 @@ export function AppShell({
     branding,
   } = useShellStore();
   const { username, logout } = useSessionStore();
+  const setI18n = useShellStore((s) => s.setI18n);
+  const t = useShellStore((s) => s.t);
   const [forbidden, setForbidden] = useState<{
     message: string;
     action?: string;
     resource?: string;
   } | null>(null);
+
+  useQuery({
+    queryKey: ["i18n", demo],
+    queryFn: async () => {
+      const cat = await fetchI18nCatalog(demo);
+      setI18n(cat);
+      return cat;
+    },
+  });
 
   useEffect(() => {
     applyTheme(themePref, reducedTransparency, density);
@@ -136,19 +149,6 @@ export function AppShell({
     setRoute({ page: "overview" });
   }
 
-  const paletteItems = [
-    { label: "Overview", sub: "Dashboard home", run: () => setRoute({ page: "overview" }) },
-    ...resources.map((r) => ({
-      label: r.label,
-      sub: `Resource · ${r.name}`,
-      run: () => setRoute({ page: "resource", name: r.name }),
-    })),
-    { label: "Media", sub: "File keys", run: () => setRoute({ page: "media" }) },
-    { label: "Schema", sub: "Migrations & plan", run: () => setRoute({ page: "schema" }) },
-    { label: "Audit", sub: "Security events", run: () => setRoute({ page: "audit" }) },
-    { label: "Settings", sub: "Theme & density", run: () => setRoute({ page: "settings" }) },
-  ];
-
   return (
     <div
       className={`shell${sidebarCollapsed ? " collapsed" : ""}`}
@@ -171,10 +171,10 @@ export function AppShell({
           onClick={() => setRoute({ page: "overview" })}
         >
           <IconLayout className="ico" />
-          <span className="nav-label">Overview</span>
+          <span className="nav-label">{t("nav.overview", "Overview")}</span>
         </button>
 
-        <div className="nav-section">Resources</div>
+        <div className="nav-section">{t("nav.resources", "Resources")}</div>
         {resources.map((r) => (
           <button
             key={r.name}
@@ -223,7 +223,7 @@ export function AppShell({
           onClick={() => setRoute({ page: "settings" })}
         >
           <IconSettings className="ico" />
-          <span className="nav-label">Settings</span>
+          <span className="nav-label">{t("nav.settings", "Settings")}</span>
         </button>
 
         <div className="sidebar-foot">
@@ -318,51 +318,12 @@ export function AppShell({
         ) : null}
       </div>
 
-      {commandOpen && (
-        <>
-          <div className="overlay" onClick={() => setCommandOpen(false)} />
-          <div className="palette" role="dialog" aria-label="Command palette" data-testid="command-palette">
-            <input
-              autoFocus
-              placeholder="Jump to…"
-              defaultValue={globalSearch}
-              onChange={(e) => setGlobalSearch(e.target.value)}
-              onKeyDown={(e) => {
-                if (e.key === "Enter") {
-                  const q = globalSearch.toLowerCase();
-                  const hit =
-                    paletteItems.find((i) => i.label.toLowerCase().includes(q)) || paletteItems[0];
-                  hit?.run();
-                  setCommandOpen(false);
-                }
-              }}
-            />
-            <div className="palette-list">
-              {paletteItems
-                .filter(
-                  (i) =>
-                    !globalSearch ||
-                    i.label.toLowerCase().includes(globalSearch.toLowerCase()) ||
-                    i.sub.toLowerCase().includes(globalSearch.toLowerCase()),
-                )
-                .map((i) => (
-                  <button
-                    key={i.label}
-                    type="button"
-                    className="palette-item"
-                    onClick={() => {
-                      i.run();
-                      setCommandOpen(false);
-                    }}
-                  >
-                    {i.label}
-                    <small>{i.sub}</small>
-                  </button>
-                ))}
-            </div>
-          </div>
-        </>
-      )}
+      <CommandPalette
+        resources={resources}
+        demo={demo}
+        open={commandOpen}
+        onClose={() => setCommandOpen(false)}
+      />
 
       <div className="toast-stack">
         {toasts.map((t) => (

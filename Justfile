@@ -62,3 +62,17 @@ cli:
 # pre-commit on all files
 pre-commit:
     uv run pre-commit run --all-files
+
+# ── Local multi-version DB matrix (OrbStack) ──────────────────────────────
+# Start/stop on demand — do not leave engines running idle.
+dbs-up *args:
+    ./scripts/dbs/up.sh {{args}}
+
+dbs-down *args:
+    ./scripts/dbs/down.sh {{args}}
+
+dbs-status:
+    ./scripts/dbs/status.sh
+
+dbs-test *args:
+    ./scripts/dbs/test.sh {{args}}

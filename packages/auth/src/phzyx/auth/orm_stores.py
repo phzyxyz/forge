@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import contextlib
 from collections.abc import Callable
 from dataclasses import dataclass, field
 from datetime import UTC, datetime, timedelta
@@ -413,8 +414,6 @@ class HybridUserMap:
                     self.repo.update(user)
         else:
             # update mutable fields
-            import contextlib
-
             with contextlib.suppress(Exception):
                 self.repo.update(
                     user,

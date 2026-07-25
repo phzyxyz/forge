@@ -13,6 +13,8 @@ dependencies = [
 [project.optional-dependencies]
 # Live MySQL / MariaDB (wire-compatible) connections for connect() + introspect.
 mysql = ["pymysql"]
+# Microsoft SQL Server (pymssql / FreeTDS).
+mssql = ["pymssql>=2.3"]
 
 [tool.uv.sources]
 phzyx-schema = { workspace = true }

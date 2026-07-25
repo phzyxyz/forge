@@ -37,6 +37,7 @@ type ShellState = {
   };
   selectedIds: string[];
   globalSearch: string;
+  i18n: Record<string, string>;
   setRoute: (route: AppRoute) => void;
   syncRouteFromHash: () => void;
   toggleSidebar: () => void;
@@ -60,6 +61,8 @@ type ShellState = {
   setDraft: (draft: Record<string, string>) => void;
   setSelectedIds: (ids: string[]) => void;
   setGlobalSearch: (q: string) => void;
+  setI18n: (catalog: Record<string, string>) => void;
+  t: (key: string, fallback?: string) => string;
 };
 
 function resolvedTheme(pref: ThemePref): "stellar-dark" | "magical-white" {
@@ -94,6 +97,7 @@ export const useShellStore = create<ShellState>()(
       drawer: { mode: null, resource: null, identity: null, draft: {} },
       selectedIds: [],
       globalSearch: "",
+      i18n: {},
       setRoute: (route) => {
         const hash = toHash(route);
         if (window.location.hash !== hash) window.location.hash = hash;
@@ -135,6 +139,8 @@ export const useShellStore = create<ShellState>()(
       setDraft: (draft) => set({ drawer: { ...get().drawer, draft } }),
       setSelectedIds: (selectedIds) => set({ selectedIds }),
       setGlobalSearch: (globalSearch) => set({ globalSearch }),
+      setI18n: (i18n) => set({ i18n }),
+      t: (key, fallback) => get().i18n[key] || fallback || key,
     }),
     {
       name: "phzyx.admin.shell.v2",

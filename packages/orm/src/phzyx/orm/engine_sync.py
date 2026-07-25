@@ -5,7 +5,7 @@ from __future__ import annotations
 import sqlite3
 from dataclasses import dataclass
 from typing import Any
-from urllib.parse import urlparse
+from urllib.parse import unquote, urlparse
 
 from phzyx.schema.types import Dialect
 
@@ -37,7 +37,11 @@ def create_engine(url: str) -> Engine:
     if raw.startswith(("mysql://", "mysql+pymysql://", "mariadb://", "mariadb+pymysql://")):
         # Placeholders in SQL builders are already ``%s`` for non-SQLite dialects.
         return Engine(dialect=Dialect.MYSQL, url=raw, _factory=_pymysql_factory(raw))
-    raise ValueError("unsupported sync URL; use sqlite:///…, postgresql://…, or mysql://…")
+    if raw.startswith(("mssql://", "mssql+pymssql://", "sqlserver://", "sqlserver+pymssql://")):
+        return Engine(dialect=Dialect.MSSQL, url=raw, _factory=_pymssql_factory(raw))
+    raise ValueError(
+        "unsupported sync URL; use sqlite:///…, postgresql://…, mysql://…, or mssql://…"
+    )
 
 
 def _sqlite_path(url: str) -> str:
@@ -82,7 +86,6 @@ def _pymysql_factory(url: str):
             raise ImportError(
                 "install pymysql for MySQL: uv add pymysql  (or uv add 'phzyx-orm[mysql]')"
             ) from exc
-        from urllib.parse import unquote, urlparse
 
         # Strip driver suffix (mysql+pymysql:// → parse as mysql://)
         scheme, _, rest = url.partition("://")
@@ -97,6 +100,33 @@ def _pymysql_factory(url: str):
             charset="utf8mb4",
             autocommit=False,
             cursorclass=pymysql.cursors.Cursor,
+        )
+
+    return _connect
+
+
+def _pymssql_factory(url: str):
+    def _connect():
+        try:
+            import pymssql  # type: ignore[import-not-found]
+        except ImportError as exc:  # pragma: no cover
+            raise ImportError(
+                "install pymssql for SQL Server: uv add pymssql  (or uv add 'phzyx-orm[mssql]')"
+            ) from exc
+
+        scheme, _, rest = url.partition("://")
+        normalized = "mssql://" + rest
+        parsed = urlparse(normalized)
+        return pymssql.connect(
+            server=parsed.hostname or "localhost",
+            port=str(parsed.port or 1433),
+            user=unquote(parsed.username) if parsed.username else "sa",
+            password=unquote(parsed.password) if parsed.password else "",
+            database=(parsed.path or "/").lstrip("/") or "master",
+            login_timeout=15,
+            timeout=30,
+            autocommit=False,
+            tds_version="7.4",
         )
 
     return _connect

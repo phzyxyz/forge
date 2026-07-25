@@ -1,5 +1,5 @@
 # Phzyx task runner (GNU Make). Prefer `just` when installed; targets mirror Justfile.
-.PHONY: default sync test test-unit test-packaging cov lint fmt fmt-check typecheck check hello hub cli pre-commit admin-check admin-e2e demo-up demo-down
+.PHONY: default sync test test-unit test-packaging cov lint fmt fmt-check typecheck check hello hub cli pre-commit admin-check admin-e2e demo-up demo-down dbs-up dbs-down dbs-status dbs-test
 
 default:
 	@echo "Targets: sync test cov … check hello hub cli admin-check admin-e2e demo-up demo-down"
@@ -60,6 +60,19 @@ demo-up:
 
 demo-down:
 	docker compose -f examples/adminboard_live/docker-compose.yml down
+
+# Multi-version SQL matrix on OrbStack (start on demand; stop when done)
+dbs-up:
+	./scripts/dbs/up.sh $(ARGS)
+
+dbs-down:
+	./scripts/dbs/down.sh $(ARGS)
+
+dbs-status:
+	./scripts/dbs/status.sh
+
+dbs-test:
+	./scripts/dbs/test.sh $(ARGS)
 
 # Full D1 local gate: unit demos + SPA check + header assert (demo must be up for e2e)
 diamond-d1:

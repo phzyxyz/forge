@@ -16,6 +16,7 @@ dependencies = [
 postgres = ["asyncpg", "psycopg[binary]>=3"]
 sqlite = ["aiosqlite"]
 mysql = ["pymysql"]
+mssql = ["pymssql>=2.3"]
 # speed = ["phzyx-core"]  # M5+ optional PyO3 extension
 
 [tool.uv.sources]

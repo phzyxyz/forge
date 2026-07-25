@@ -28,29 +28,37 @@ def normalize_sql_type(sql_type: str, *, dialect: str) -> LogicalType:
         return LogicalType.INT
     if base in {"REAL", "FLOAT", "DOUBLE", "DOUBLE PRECISION"}:
         return LogicalType.FLOAT
-    if base in {"BOOL", "BOOLEAN"}:
+    if base in {"BOOL", "BOOLEAN", "BIT"}:
         return LogicalType.BOOL
     if base in {
         "BLOB",
         "BYTEA",
         "BINARY",
         "VARBINARY",
+        "IMAGE",
         "TINYBLOB",
         "MEDIUMBLOB",
         "LONGBLOB",
     }:
         return LogicalType.BYTES
-    if base in {"UUID"}:
+    if base in {"UUID", "UNIQUEIDENTIFIER"}:
         return LogicalType.UUID
     if base in {"JSONB", "JSON"}:
         return LogicalType.JSON
-    if base in {"NUMERIC", "DECIMAL", "DEC", "FIXED"}:
+    if base in {"NUMERIC", "DECIMAL", "DEC", "FIXED", "MONEY", "SMALLMONEY"}:
         return LogicalType.DECIMAL
     if base in {"DATE"}:
         return LogicalType.DATE
     if base in {"TIME"}:
         return LogicalType.TIME
-    if base in {"TIMESTAMP", "TIMESTAMPTZ", "DATETIME"}:
+    if base in {
+        "TIMESTAMP",
+        "TIMESTAMPTZ",
+        "DATETIME",
+        "DATETIME2",
+        "SMALLDATETIME",
+        "DATETIMEOFFSET",
+    }:
         return LogicalType.DATETIME
     if base in {
         "TEXT",
@@ -58,12 +66,15 @@ def normalize_sql_type(sql_type: str, *, dialect: str) -> LogicalType:
         "CHAR",
         "CHARACTER",
         "NVARCHAR",
+        "NCHAR",
+        "NTEXT",
         "CLOB",
         "TINYTEXT",
         "MEDIUMTEXT",
         "LONGTEXT",
         "ENUM",
         "SET",
+        "SYSNAME",
     }:
         # CHAR(36) often stores UUID on MySQL — still LogicalType.STR unless app uses db_type.
         return LogicalType.STR

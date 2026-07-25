@@ -55,6 +55,60 @@ export async function fetchResources(demo: boolean): Promise<ResourceSchema[]> {
   return apiJson<ResourceSchema[]>("/resources");
 }
 
+export type DashboardWidget = {
+  id?: string;
+  resource: string;
+  label?: string;
+  title?: string;
+  value: number;
+  kind?: string;
+};
+
+export async function fetchDashboardWidgets(
+  demo: boolean,
+  resources: ResourceSchema[],
+): Promise<DashboardWidget[]> {
+  if (demo) {
+    // Approximate with list totals in demo mode.
+    const out: DashboardWidget[] = [];
+    for (const r of resources) {
+      const list = await demoList(r.name, { page: 1, page_size: 1 });
+      out.push({
+        resource: r.name,
+        label: r.label,
+        value: list.total,
+        kind: "count",
+      });
+    }
+    return out;
+  }
+  const data = await apiJson<{ items: DashboardWidget[] }>("/widgets");
+  return data.items ?? [];
+}
+
+export async function fetchI18nCatalog(
+  demo: boolean,
+  locale = "en",
+): Promise<Record<string, string>> {
+  if (demo) {
+    return {
+      "app.title": "AdminBoard",
+      "nav.resources": "Resources",
+      "nav.settings": "Settings",
+      "action.create": "Create",
+      "action.save": "Save",
+      "action.delete": "Delete",
+      "action.export": "Export",
+      "action.search": "Search",
+      "empty.no_results": "No results",
+    };
+  }
+  const data = await apiJson<{ catalog: Record<string, string> }>(
+    `/i18n?locale=${encodeURIComponent(locale)}`,
+  );
+  return data.catalog ?? {};
+}
+
 export async function listRecords(
   demo: boolean,
   name: string,

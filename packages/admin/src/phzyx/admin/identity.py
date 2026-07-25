@@ -36,10 +36,16 @@ def decode_identity(model: type[Model], identity: str) -> Any:
     pk = info.primary_key
     raw = unquote(identity)
     if len(pk) == 1:
-        # try int coercion for int PKs
+        # try int coercion for int PKs (including Optional[int] / int | None)
         field = model.model_fields[pk[0]]
         ann = field.annotation
-        if ann is int:
+        core = ann
+        origin = getattr(ann, "__origin__", None)
+        if origin is not None:
+            args = [a for a in getattr(ann, "__args__", ()) if a is not type(None)]
+            if len(args) == 1:
+                core = args[0]
+        if core is int or ann is int:
             try:
                 return int(raw)
             except ValueError as exc:

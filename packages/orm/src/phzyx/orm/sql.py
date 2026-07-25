@@ -6,7 +6,7 @@ from collections.abc import Sequence
 from dataclasses import dataclass, field
 from typing import Any
 
-from phzyx.orm.expr import Filter, OrderBy, compile_filters
+from phzyx.orm.expr import Filter, OrderBy, compile_filters, eq
 from phzyx.orm.keyset import build_keyset_where, decode_cursor
 from phzyx.schema.ddl import quote_ident
 from phzyx.schema.model import Model, get_table_info
@@ -102,6 +102,7 @@ def build_select(
     cursor: str | None = None,
     cursor_after: bool = True,
     dialect: Dialect | str = Dialect.SQLITE,
+    for_update: bool | str = False,
 ) -> SqlFragment:
     d = Dialect(dialect) if not isinstance(dialect, Dialect) else dialect
     table = _table_name(model, d)
@@ -128,11 +129,62 @@ def build_select(
             direction = "DESC" if o.descending else "ASC"
             parts.append(f"{quote_ident(o.column, d)} {direction}")
         sql += " ORDER BY " + ", ".join(parts)
-    if limit is not None:
-        sql += f" LIMIT {int(limit)}"
-    if offset is not None:
-        # Discouraged for deep pages — prefer cursor=
-        sql += f" OFFSET {int(offset)}"
+    # Pagination: SQL Server uses OFFSET/FETCH (requires ORDER BY).
+    if d is Dialect.MSSQL:
+        if limit is not None or offset is not None:
+            if not order_by:
+                sql += " ORDER BY (SELECT NULL)"
+            off = int(offset or 0)
+            sql += f" OFFSET {off} ROWS"
+            if limit is not None:
+                sql += f" FETCH NEXT {int(limit)} ROWS ONLY"
+    else:
+        if limit is not None:
+            sql += f" LIMIT {int(limit)}"
+        if offset is not None:
+            # Discouraged for deep pages — prefer cursor=
+            sql += f" OFFSET {int(offset)}"
+    if for_update:
+        # SQLite has no row-level FOR UPDATE; use a transaction (BEGIN IMMEDIATE) instead.
+        if d is Dialect.SQLITE:
+            pass
+        elif d is Dialect.MSSQL:
+            # SQL Server locks via table hints (applied on FROM clause below).
+            # Injected after FROM when building; fall back to no-op here if
+            # the FROM already has a hint. Portable minimum: UPDLOCK on re-select.
+            if " WITH (" not in sql:
+                sql = sql.replace(
+                    f" FROM {table}",
+                    f" FROM {table} WITH (UPDLOCK, ROWLOCK)",
+                    1,
+                )
+        elif for_update is True:
+            sql += " FOR UPDATE"
+        else:
+            mode = str(for_update).upper().replace("-", " ")
+            if mode in {"NOWAIT", "SKIP LOCKED"}:
+                sql += f" FOR UPDATE {mode}"
+            else:
+                # Unknown mode — still lock rows (portable minimum).
+                sql += " FOR UPDATE"
+    return SqlFragment(sql=sql, params=params)
+
+
+def build_count(
+    model: type[Model],
+    *,
+    where: Sequence[Filter] = (),
+    dialect: Dialect | str = Dialect.SQLITE,
+) -> SqlFragment:
+    """SELECT COUNT(*) for efficient totals (no full row load)."""
+    d = Dialect(dialect) if not isinstance(dialect, Dialect) else dialect
+    table = _table_name(model, d)
+    sql = f"SELECT COUNT(*) FROM {table}"
+    params: list[Any] = []
+    if where:
+        where_sql, where_params = compile_filters(where, dialect=d)
+        sql += f" WHERE ({where_sql})"
+        params.extend(where_params)
     return SqlFragment(sql=sql, params=params)
 
 
@@ -146,8 +198,6 @@ def build_select_by_pk(
 
     ``key`` is a scalar for single PK, or a dict/tuple for composite.
     """
-    from phzyx.orm.expr import eq
-
     info = get_table_info(model)
     pk = info.primary_key
     if not pk:

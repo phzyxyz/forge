@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 from collections.abc import Iterable
+from datetime import UTC, datetime
 from typing import Any
 
 from phzyx.auth.principal import Principal
@@ -68,8 +69,6 @@ def user_is_locked(user: Any, *, now: Any | None = None) -> bool:
     locked_until = getattr(user, "locked_until", None)
     if locked_until is None:
         return False
-    from datetime import UTC, datetime
-
     n = now or datetime.now(UTC)
     if getattr(locked_until, "tzinfo", None) is None and getattr(n, "tzinfo", None) is not None:
         n = n.replace(tzinfo=None)

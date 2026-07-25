@@ -94,6 +94,33 @@ def parse_database_url(url: str) -> DatabaseURL:
             database=(parsed.path or "/").lstrip("/") or None,
         )
 
+    if raw.startswith(
+        (
+            "mssql://",
+            "mssql+",
+            "sqlserver://",
+            "sqlserver+",
+            "microsoft://",
+        )
+    ):
+        # mssql://  mssql+pymssql://  sqlserver:// → Dialect.MSSQL
+        scheme, _, rest = raw.partition("://")
+        if not rest:
+            raise ConnectionError(f"malformed MSSQL URL: {url!r}")
+        normalized = "mssql://" + rest
+        parsed = urlparse(normalized)
+        return DatabaseURL(
+            dialect=Dialect.MSSQL,
+            raw=raw,
+            host=parsed.hostname or "localhost",
+            port=parsed.port or 1433,
+            user=unquote(parsed.username) if parsed.username else None,
+            password=unquote(parsed.password) if parsed.password else None,
+            database=(parsed.path or "/").lstrip("/") or None,
+        )
+
     raise ConnectionError(
-        f"unsupported database URL scheme (use sqlite:///, postgresql://, or mysql://): {url!r}"
+        "unsupported database URL scheme "
+        "(use sqlite:///, postgresql://, mysql://, or mssql://): "
+        f"{url!r}"
     )

@@ -27,6 +27,20 @@ class StorageBackend(Protocol):
         """List storage keys under optional prefix (D6 media library)."""
         ...
 
+    def presign_put(
+        self,
+        key: str,
+        *,
+        expires_in: int = 3600,
+        content_type: str | None = None,
+    ) -> str | None:
+        """Optional signed PUT URL for direct browser→storage upload."""
+        return None
+
+    def presign_get(self, key: str, *, expires_in: int = 3600) -> str | None:
+        """Optional signed GET URL."""
+        return None
+
 
 class LocalStorage:
     """Filesystem storage for local/dev."""
@@ -76,6 +90,21 @@ class LocalStorage:
                 continue
             out.append(rel)
         return sorted(out)
+
+    def presign_put(
+        self,
+        key: str,
+        *,
+        expires_in: int = 3600,
+        content_type: str | None = None,
+    ) -> str | None:
+        # Local dev: instruct client to hit admin upload API
+        _ = (expires_in, content_type)
+        return f"/admin/api/v1/media/upload?key={sanitize_upload_key(key)}"
+
+    def presign_get(self, key: str, *, expires_in: int = 3600) -> str | None:
+        _ = expires_in
+        return f"/admin/api/v1/media/open?key={sanitize_upload_key(key)}"
 
 
 class MemoryStorage:

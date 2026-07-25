@@ -6,6 +6,7 @@ from collections.abc import Callable, Sequence
 from dataclasses import dataclass
 from typing import TYPE_CHECKING, Any, Literal
 
+from phzyx.admin.auth import require_authz
 from phzyx.admin.errors import NotFoundError, ValidationAdminError
 from phzyx.admin.identity import decode_identity
 
@@ -225,8 +226,6 @@ def run_admin_action(
     handlers: dict[str, Handler] | None = None,
 ) -> dict[str, Any]:
     """Run a server-side action (row or bulk)."""
-    from phzyx.admin.auth import require_authz
-
     require_authz(service.authz, principal, f"action:{action}", resource)
     # Client-only actions should not hit the server runner
     catalog = {

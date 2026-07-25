@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import contextlib
 from collections.abc import Callable
 from dataclasses import dataclass, field
 from datetime import UTC, datetime, timedelta
@@ -121,8 +122,6 @@ class AuthService:
 
     def _persist_user(self, user: Any) -> None:
         """Write-through for HybridUserMap / custom user maps."""
-        import contextlib
-
         email = str(getattr(user, "email", "") or "").lower()
         if not email:
             return

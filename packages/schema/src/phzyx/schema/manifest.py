@@ -10,7 +10,12 @@ from typing import Any, Literal
 from phzyx.schema.errors import SchemaError
 from phzyx.schema.field import OnDelete
 from phzyx.schema.model import Model, get_table_info
-from phzyx.schema.types import LogicalType, infer_logical_type
+from phzyx.schema.types import (
+    LogicalType,
+    enum_values,
+    field_max_length,
+    infer_logical_type,
+)
 
 MANIFEST_VERSION = 1
 
@@ -35,25 +40,41 @@ class ColumnDef:
     admin_readonly: bool = False
     admin_exclude: bool = False
     file_kind: str | None = None
+    autoincrement: bool = False
+    auto_now_add: bool = False
+    auto_now: bool = False
+    optimistic: bool = False
+    max_length: int | None = None
+    enum_values: tuple[Any, ...] | None = None
+    generated: str | None = None
+    on_update: str | None = None
+    pg_enum_name: str | None = None
 
 
 @dataclass(frozen=True, slots=True)
 class IndexDef:
     name: str
-    columns: tuple[str, ...]
+    columns: tuple[str, ...] = ()
     unique: bool = False
+    # Partial index predicate (PG/SQLite 3.8+ WHERE …)
+    where: str | None = None
+    # Index method: btree (default), gin, gist, hash (dialect-dependent)
+    using: str | None = None
+    # Expression index bodies when not simple columns (e.g. "lower(email)")
+    expressions: tuple[str, ...] = ()
 
 
 @dataclass(frozen=True, slots=True)
 class ConstraintDef:
-    """Named table constraint (currently foreign keys)."""
+    """Named table constraint (FK, CHECK, or multi-column UNIQUE)."""
 
     name: str
-    kind: Literal["foreign_key"]
-    columns: tuple[str, ...]
-    ref_table: str
-    ref_columns: tuple[str, ...]
+    kind: Literal["foreign_key", "check", "unique"]
+    columns: tuple[str, ...] = ()
+    ref_table: str = ""
+    ref_columns: tuple[str, ...] = ()
     on_delete: str | None = None
+    expression: str | None = None
 
 
 @dataclass(frozen=True, slots=True)
@@ -152,8 +173,25 @@ def _table_def_from_model(model: type[Model]) -> TableDef:
         ann = field_info.annotation
         # File/Image fields store object-storage keys as strings, not blobs.
         logical = LogicalType.STR if col_meta.file_kind else infer_logical_type(ann)
+        evalues = None if col_meta.file_kind else enum_values(ann)
+        max_len = field_max_length(field_info)
 
         nullable = False if col_meta.primary_key else (not field_info.is_required())
+        autoincrement = _resolve_autoincrement(
+            col_meta,
+            logical=logical,
+            primary_key_cols=info.primary_key,
+            field_name=field_name,
+        )
+        server_default = col_meta.server_default
+        if server_default is None and col_meta.auto_now_add:
+            # Portable-ish defaults; dialects refine at DDL emit.
+            server_default = "CURRENT_TIMESTAMP"
+
+        # Prefer VARCHAR when max_length is set (unless db_type override).
+        db_type = col_meta.db_type
+        if db_type is None and logical is LogicalType.STR and max_len:
+            db_type = f"VARCHAR({max_len})"
 
         columns.append(
             ColumnDef(
@@ -165,14 +203,23 @@ def _table_def_from_model(model: type[Model]) -> TableDef:
                 index=col_meta.index,
                 foreign_key=col_meta.foreign_key,
                 on_delete=_on_delete_str(col_meta.on_delete),
-                server_default=col_meta.server_default,
-                db_type=col_meta.db_type,
+                server_default=server_default,
+                db_type=db_type,
                 renamed_from=col_meta.renamed_from,
                 archive_on_remove=col_meta.archive_on_remove,
                 admin_hidden=col_meta.admin_hidden,
                 admin_readonly=col_meta.admin_readonly,
                 admin_exclude=col_meta.admin_exclude,
                 file_kind=col_meta.file_kind,
+                autoincrement=autoincrement,
+                auto_now_add=col_meta.auto_now_add,
+                auto_now=col_meta.auto_now,
+                optimistic=col_meta.optimistic,
+                max_length=max_len,
+                enum_values=evalues,
+                generated=col_meta.generated,
+                on_update=col_meta.on_update,
+                pg_enum_name=(f"{info.name}_{field_name}_enum" if evalues is not None else None),
             )
         )
 
@@ -206,6 +253,28 @@ def _table_def_from_model(model: type[Model]) -> TableDef:
                 )
             )
 
+        # CHECK enum for non-Postgres; PG uses CREATE TYPE (render_enum_ddl).
+        if evalues is not None:
+            literals = ", ".join(_sql_literal(v) for v in evalues)
+            constraints.append(
+                ConstraintDef(
+                    name=f"ck_{info.name}_{field_name}_enum",
+                    kind="check",
+                    columns=(field_name,),
+                    expression=f"{field_name} IN ({literals})",
+                )
+            )
+
+    # Meta.unique_together / Meta.indexes / Meta.checks
+    meta_cls = getattr(model, "Meta", None)
+    if meta_cls is not None:
+        _apply_meta_table_options(
+            meta_cls,
+            table=info.name,
+            indexes=indexes,
+            constraints=constraints,
+        )
+
     return TableDef(
         name=info.name,
         schema_name=info.schema_name,
@@ -217,12 +286,98 @@ def _table_def_from_model(model: type[Model]) -> TableDef:
     )
 
 
+def _sql_literal(value: Any) -> str:
+    if value is None:
+        return "NULL"
+    if isinstance(value, bool):
+        return "1" if value else "0"
+    if isinstance(value, (int, float)):
+        return str(value)
+    s = str(value).replace("'", "''")
+    return f"'{s}'"
+
+
+def _apply_meta_table_options(
+    meta_cls: Any,
+    *,
+    table: str,
+    indexes: list[IndexDef],
+    constraints: list[ConstraintDef],
+) -> None:
+    """Meta.unique_together, Meta.indexes, Meta.checks."""
+    for cols in getattr(meta_cls, "unique_together", ()) or ():
+        col_t = tuple(cols) if not isinstance(cols, str) else (cols,)
+        if not col_t:
+            continue
+        indexes.append(
+            IndexDef(
+                name=f"uq_{table}_{'_'.join(col_t)}"[:60],
+                columns=col_t,
+                unique=True,
+            )
+        )
+    for cols in getattr(meta_cls, "indexes", ()) or ():
+        # Allow dict form: {"columns": [...], "where": "...", "using": "gin"}
+        if isinstance(cols, dict):
+            col_t = tuple(cols.get("columns") or cols.get("expressions") or ())
+            indexes.append(
+                IndexDef(
+                    name=str(cols.get("name") or f"ix_{table}_{'_'.join(map(str, col_t))}")[:60],
+                    columns=tuple(cols.get("columns") or ()),
+                    unique=bool(cols.get("unique", False)),
+                    where=cols.get("where"),
+                    using=cols.get("using"),
+                    expressions=tuple(cols.get("expressions") or ()),
+                )
+            )
+            continue
+        col_t = tuple(cols) if not isinstance(cols, str) else (cols,)
+        if not col_t:
+            continue
+        indexes.append(
+            IndexDef(
+                name=f"ix_{table}_{'_'.join(col_t)}"[:60],
+                columns=col_t,
+                unique=False,
+            )
+        )
+    for i, expr in enumerate(getattr(meta_cls, "checks", ()) or ()):
+        if not expr or not str(expr).strip():
+            continue
+        constraints.append(
+            ConstraintDef(
+                name=f"ck_{table}_{i}",
+                kind="check",
+                expression=str(expr).strip(),
+            )
+        )
+
+
 def _on_delete_str(value: OnDelete | str | None) -> str | None:
     if value is None:
         return None
     if isinstance(value, OnDelete):
         return value.value
     return value
+
+
+def _resolve_autoincrement(
+    col_meta: Any,
+    *,
+    logical: LogicalType,
+    primary_key_cols: tuple[str, ...],
+    field_name: str,
+) -> bool:
+    """Default: single integer PK is autoincrement unless explicitly disabled."""
+    if col_meta.autoincrement is not None:
+        return bool(col_meta.autoincrement)
+    if not col_meta.primary_key:
+        return False
+    if len(primary_key_cols) != 1 or primary_key_cols[0] != field_name:
+        return False
+    if col_meta.foreign_key:
+        return False
+    return logical is LogicalType.INT
 
 
 def _split_fk(ref: str, *, model_name: str) -> tuple[str, str]:
@@ -278,6 +433,12 @@ def _table_from_dict(data: dict[str, Any]) -> TableDef:
             admin_readonly=bool(c.get("admin_readonly", False)),
             admin_exclude=bool(c.get("admin_exclude", False)),
             file_kind=c.get("file_kind"),
+            autoincrement=bool(c.get("autoincrement", False)),
+            auto_now_add=bool(c.get("auto_now_add", False)),
+            auto_now=bool(c.get("auto_now", False)),
+            optimistic=bool(c.get("optimistic", False)),
+            max_length=c.get("max_length"),
+            enum_values=tuple(c["enum_values"]) if c.get("enum_values") is not None else None,
         )
         for c in data.get("columns", [])
     )
@@ -293,10 +454,11 @@ def _table_from_dict(data: dict[str, Any]) -> TableDef:
         ConstraintDef(
             name=c["name"],
             kind=c["kind"],
-            columns=tuple(c["columns"]),
-            ref_table=c["ref_table"],
-            ref_columns=tuple(c["ref_columns"]),
+            columns=tuple(c.get("columns") or ()),
+            ref_table=c.get("ref_table") or "",
+            ref_columns=tuple(c.get("ref_columns") or ()),
             on_delete=c.get("on_delete"),
+            expression=c.get("expression"),
         )
         for c in data.get("constraints", [])
     )

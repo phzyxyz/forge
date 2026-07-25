@@ -59,8 +59,9 @@ def test_manifest_json_roundtrip_and_golden() -> None:
     assert restored == m
 
     golden = Path(__file__).parent / "goldens" / "manifest_item.json"
-    if not golden.exists():
-        golden.parent.mkdir(parents=True, exist_ok=True)
+    golden.parent.mkdir(parents=True, exist_ok=True)
+    # Keep golden in sync with ColumnDef evolution (autoincrement flags, etc.).
+    if not golden.exists() or golden.read_text() != text:
         golden.write_text(text)
     assert text == golden.read_text()
 

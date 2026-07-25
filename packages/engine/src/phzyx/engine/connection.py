@@ -9,6 +9,7 @@ from typing import Any
 
 from phzyx.engine.dsn import DatabaseURL, parse_database_url
 from phzyx.engine.errors import ConnectionError
+from phzyx.engine.introspect_mssql import MssqlAdapter, require_pymssql
 from phzyx.engine.introspect_mysql import MySQLAdapter, require_pymysql
 from phzyx.engine.introspect_postgres import PostgresAdapter, require_psycopg
 from phzyx.engine.introspect_sqlite import SQLiteAdapter
@@ -32,7 +33,7 @@ def _ensure_sqlite_adapters() -> None:
 
 def connect(
     url: str | DatabaseURL,
-) -> tuple[Any, SQLiteAdapter | PostgresAdapter | MySQLAdapter]:
+) -> tuple[Any, SQLiteAdapter | PostgresAdapter | MySQLAdapter | MssqlAdapter]:
     """Return (connection, dialect_adapter)."""
     db = parse_database_url(url) if isinstance(url, str) else url
     if db.dialect is Dialect.SQLITE:
@@ -70,6 +71,23 @@ def connect(
         except Exception as exc:  # pragma: no cover
             raise ConnectionError(f"failed to connect to MySQL: {exc}") from exc
         return conn, MySQLAdapter()
+    if db.dialect is Dialect.MSSQL:
+        pymssql = require_pymssql()
+        try:
+            conn = pymssql.connect(
+                server=db.host or "localhost",
+                port=str(db.port or 1433),
+                user=db.user or "sa",
+                password=db.password or "",
+                database=db.database or "master",
+                login_timeout=15,
+                timeout=30,
+                autocommit=False,
+                tds_version="7.4",
+            )
+        except Exception as exc:  # pragma: no cover
+            raise ConnectionError(f"failed to connect to SQL Server: {exc}") from exc
+        return conn, MssqlAdapter()
     raise ConnectionError(f"unsupported dialect: {db.dialect}")
 
 
