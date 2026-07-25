@@ -33,12 +33,12 @@ test.describe("AdminBoard diamond D1", () => {
     await page.getByTestId("drawer-save").click();
     await expect(page.getByTestId("record-drawer")).toBeHidden({ timeout: 10_000 });
 
-    // Create user (unique id each run — SQLite volume persists across tests)
+    // Create user — int PK is autoincrement (hidden on create)
     const uid = String(Date.now() % 1_000_000_000);
     const email = `d1-${uid}@phzyx.xyz`;
     await page.getByTestId("new-record").click();
     await expect(page.getByTestId("record-drawer")).toBeVisible();
-    await page.getByTestId("field-id").fill(uid);
+    await expect(page.getByTestId("field-id")).toHaveCount(0);
     await page.getByTestId("field-email").fill(email);
     await page.getByTestId("field-name").fill("Diamond");
     await page.getByTestId("drawer-save").click();
@@ -50,14 +50,19 @@ test.describe("AdminBoard diamond D1", () => {
     await expect(page.getByRole("menuitem", { name: "Export CSV" })).toBeVisible();
     await page.keyboard.press("Escape");
 
-    // Media preview
+    // Media preview (first card may be image, text, or other — not always img)
     await page.getByTestId("nav-media").click();
     await expect(page.getByTestId("media-page")).toBeVisible();
     const card = page.getByTestId("media-card").first();
     await expect(card).toBeVisible();
     await card.click();
     await expect(page.getByTestId("file-preview")).toBeVisible();
-    await expect(page.getByTestId("file-preview-img")).toBeVisible({ timeout: 10_000 });
+    await expect(
+      page
+        .getByTestId("file-preview-img")
+        .or(page.getByTestId("file-preview-text"))
+        .or(page.getByTestId("file-preview-pdf")),
+    ).toBeVisible({ timeout: 10_000 });
     await page.getByTestId("file-preview-close").click();
 
     // Sign out → login

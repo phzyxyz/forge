@@ -9,8 +9,8 @@ test.describe("Diamond D6 Media", () => {
     await page.getByTestId("login-submit").click();
     await expect(page.getByTestId("login-page")).toBeHidden({ timeout: 15_000 });
 
-    await page.getByRole("link", { name: /Media/i }).click();
-    await expect(page.getByTestId("media-page")).toBeVisible({ timeout: 10_000 });
+    await page.getByTestId("nav-media").click();
+    await expect(page.getByTestId("media-page")).toBeVisible({ timeout: 15_000 });
     await expect(page.getByTestId("media-dropzone")).toBeVisible();
     await expect(page.getByTestId("media-card").first()).toBeVisible({ timeout: 10_000 });
   });

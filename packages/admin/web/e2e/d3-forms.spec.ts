@@ -32,9 +32,9 @@ test.describe("AdminBoard diamond D3", () => {
     await page.getByRole("dialog", { name: "Discard unsaved changes?" }).getByRole("button", { name: "Cancel" }).click();
     await expect(page.getByTestId("record-drawer")).toBeVisible();
 
-    // 422 field errors (missing email)
+    // 422 field errors (missing email). PK is autoincrement — not on create form.
     const uid = String(Date.now() % 1_000_000_000);
-    await page.getByTestId("field-id").fill(uid);
+    await expect(page.getByTestId("field-id")).toHaveCount(0);
     await page.getByTestId("field-name").fill("D3 User");
     // leave email empty
     await page.getByTestId("drawer-save").click();

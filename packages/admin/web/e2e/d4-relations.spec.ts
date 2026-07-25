@@ -17,12 +17,15 @@ test.describe("AdminBoard diamond D4", () => {
     await expect(page.getByTestId("resource-page-posts")).toBeVisible();
     await page.getByTestId("new-record").click();
     await expect(page.getByTestId("record-drawer")).toBeVisible();
-    await page.getByTestId("field-id").fill(String(Date.now() % 1_000_000));
-    await page.getByTestId("field-title").fill("D4 Post");
+    // int PK autoincrement — not shown on create
+    await expect(page.getByTestId("field-id")).toHaveCount(0);
+    const title = `D4 Post ${Date.now() % 1_000_000}`;
+    await page.getByTestId("field-title").fill(title);
     await page.getByTestId("field-author_id").click();
     await page.getByTestId("field-author_id").fill("ops");
     await expect(page.getByTestId("fk-options-author_id")).toBeVisible({ timeout: 10_000 });
-    await page.getByTestId("fk-option-1").click();
+    // first matching FK option (seed user "ops")
+    await page.locator('[data-testid^="fk-option-"]').first().click();
     await page.getByTestId("drawer-save").click();
     await expect(page.getByTestId("record-drawer")).toBeHidden({ timeout: 15_000 });
 
