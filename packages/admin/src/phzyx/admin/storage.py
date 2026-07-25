@@ -138,6 +138,20 @@ class MemoryStorage:
             return keys
         return [k for k in keys if k == pref or k.startswith(pref + "/")]
 
+    def presign_put(
+        self,
+        key: str,
+        *,
+        expires_in: int = 3600,
+        content_type: str | None = None,
+    ) -> str | None:
+        _ = (expires_in, content_type)
+        return f"memory://put/{sanitize_upload_key(key)}"
+
+    def presign_get(self, key: str, *, expires_in: int = 3600) -> str | None:
+        _ = expires_in
+        return f"memory://get/{sanitize_upload_key(key)}"
+
 
 def guess_content_type(key: str) -> str:
     ctype, _ = mimetypes.guess_type(key)

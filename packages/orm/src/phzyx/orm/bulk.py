@@ -46,7 +46,9 @@ def bulk_insert(
             if default is not PydanticUndefined and default is not None:
                 data[field_name] = default
             elif field_info.default_factory is not None:
-                data[field_name] = field_info.default_factory()
+                # Pydantic FieldInfo.default_factory is Callable[[], Any]
+                factory = field_info.default_factory
+                data[field_name] = factory()  # type: ignore[call-arg,misc]
         for name, meta in info.columns.items():
             if meta.generated:
                 data.pop(name, None)

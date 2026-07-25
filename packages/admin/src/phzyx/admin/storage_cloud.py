@@ -189,7 +189,10 @@ class AzureBlobStorage:
         if k in self._mem:
             return f"memory://{self.container}/{k}?put=1&exp={expires_in}"
         try:
-            from azure.storage.blob import BlobSasPermissions, generate_blob_sas
+            from azure.storage.blob import (  # type: ignore[import-untyped,import-not-found]
+                BlobSasPermissions,
+                generate_blob_sas,
+            )
         except ImportError as exc:  # pragma: no cover
             raise ImportError("Azure presign requires azure-storage-blob") from exc
         blob = self._blob(k)
@@ -225,7 +228,10 @@ class AzureBlobStorage:
         if k in self._mem:
             return f"memory://{self.container}/{k}?get=1&exp={expires_in}"
         try:
-            from azure.storage.blob import BlobSasPermissions, generate_blob_sas
+            from azure.storage.blob import (  # type: ignore[import-untyped,import-not-found]
+                BlobSasPermissions,
+                generate_blob_sas,
+            )
         except ImportError as exc:  # pragma: no cover
             raise ImportError("Azure presign requires azure-storage-blob") from exc
         blob = self._blob(k)
