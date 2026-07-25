@@ -825,7 +825,11 @@ def _validation_error(exc: BaseException) -> ValidationAdminError:
     errors_fn = getattr(exc, "errors", None)
     if callable(errors_fn):
         try:
-            for err in errors_fn():
+            raw_errors = errors_fn()
+            items = raw_errors if isinstance(raw_errors, list) else []
+            for err in items:
+                if not isinstance(err, dict):
+                    continue
                 loc = err.get("loc") or ()
                 key = ".".join(str(x) for x in loc) if loc else "_form"
                 msg = str(err.get("msg") or "invalid")

@@ -1,2 +1,6 @@
+# Single-package workspace (AdminBoard SPA). Required so pnpm does not error
+# with "packages field missing or empty" on CI.
+packages:
+  - "."
 allowBuilds:
   esbuild: true

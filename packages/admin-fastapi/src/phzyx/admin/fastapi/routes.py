@@ -9,7 +9,7 @@ from phzyx.admin.opener import open_meta_for_key
 from phzyx.admin.service import AdminService
 from phzyx.admin.themes import PRIMARY_THEMES
 
-from fastapi import APIRouter, Header, Request, Response
+from fastapi import APIRouter, Header, HTTPException, Request, Response
 from fastapi.responses import JSONResponse, PlainTextResponse
 
 if TYPE_CHECKING:
@@ -561,15 +561,15 @@ def create_admin_router(board: AdminBoard) -> APIRouter:
         p = principal(request, x_api_key)
         # Branding changes require superuser (open demos may have no principal).
         if "branding" in body and p is not None and not bool(getattr(p, "is_superuser", False)):
-            return JSONResponse(
-                {
+            raise HTTPException(
+                status_code=403,
+                detail={
                     "error": {
                         "code": "forbidden",
                         "message": "Only superusers may change branding",
                         "details": {},
                     }
                 },
-                status_code=403,
             )
         return board.settings_store.put(AdminSettings.from_dict(body)).to_dict()
 

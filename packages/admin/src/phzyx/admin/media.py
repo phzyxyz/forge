@@ -30,7 +30,11 @@ class MediaLibrary:
     def refresh_from_storage(self, prefix: str = "") -> list[MediaItem]:
         """Scan backend keys into index (D6 library)."""
         list_fn = getattr(self.storage, "list_keys", None)
-        keys = list(list_fn(prefix)) if callable(list_fn) else list(self.index.keys())
+        if callable(list_fn):
+            listed = list_fn(prefix)
+            keys = [] if listed is None else [str(k) for k in list(listed)]  # type: ignore[arg-type]
+        else:
+            keys = list(self.index.keys())
         for key in keys:
             if key in self.index:
                 continue
