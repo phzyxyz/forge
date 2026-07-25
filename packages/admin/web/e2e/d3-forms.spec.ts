@@ -42,11 +42,14 @@ test.describe("AdminBoard diamond D3", () => {
     await expect(page.getByTestId("form-error")).toBeVisible();
 
     // Complete + save
-    await page.getByTestId("field-email").fill(`d3-${uid}@phzyx.xyz`);
+    const email = `d3-${uid}@phzyx.xyz`;
+    await page.getByTestId("field-email").fill(email);
     await page.getByTestId("field-joined").fill("2025-03-01");
     await page.getByTestId("field-notes").fill("Diamond form");
     await page.getByTestId("drawer-save").click();
     await expect(page.getByTestId("record-drawer")).toBeHidden({ timeout: 15_000 });
-    await expect(page.getByText(`d3-${uid}@phzyx.xyz`)).toBeVisible({ timeout: 10_000 });
+    // Full seed is multi-page; search for the created row
+    await page.getByTestId("resource-search").fill(email);
+    await expect(page.getByText(email)).toBeVisible({ timeout: 15_000 });
   });
 });

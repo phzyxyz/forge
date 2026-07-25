@@ -43,7 +43,9 @@ test.describe("AdminBoard diamond D1", () => {
     await page.getByTestId("field-name").fill("Diamond");
     await page.getByTestId("drawer-save").click();
     await expect(page.getByTestId("record-drawer")).toBeHidden({ timeout: 15_000 });
-    await expect(page.getByText(email)).toBeVisible({ timeout: 10_000 });
+    // Full seed is multi-page; search so the new row is on-screen
+    await page.getByTestId("resource-search").fill(email);
+    await expect(page.getByText(email)).toBeVisible({ timeout: 15_000 });
 
     // Overflow export menu
     await page.getByTestId("overflow-menu").click();
