@@ -1,8 +1,15 @@
 # Phzyx hello example
 
-Minimal **FastAPI** app that imports workspace packages (`phzyx.schema`, `phzyx.admin.fastapi`) to prove monorepo wiring.
+Minimal **FastAPI** app that imports workspace packages to prove monorepo wiring.
 
-AdminBoard mount arrives in **M4** — this example stays a thin stub until then.
+For a **full scaffolded app** (async CRUD + AdminBoard + forge island), use:
+
+```bash
+phzyx new myapp --preset max
+```
+
+Or follow [Getting started](https://phzyx.xyz/forge/getting-started).  
+Rich operator demo: `examples/adminboard_live/`.
 
 ## Run (from monorepo root)
 

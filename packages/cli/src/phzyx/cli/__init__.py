@@ -48,54 +48,76 @@ def main(argv: list[str] | None = None) -> int:
     add = sub.add_parser("add", help="add package scaffolds to a project")
     add_sub = add.add_subparsers(dest="add_command")
     add_auth = add_sub.add_parser("auth", help="scaffold phzyx-auth wiring")
-    add_auth.add_argument(
-        "--path",
-        default=".",
-        help="project directory (default: cwd)",
-    )
+    add_auth.add_argument("--path", default=".", help="project directory (default: cwd)")
     add_auth.add_argument(
         "--module",
-        default="auth.py",
-        help="output module filename (default: auth.py)",
+        default="app/forge/auth.py",
+        help="output module path (default: app/forge/auth.py)",
     )
-    add_auth.add_argument("--force", action="store_true", help="overwrite existing files")
+    add_auth.add_argument("--force", action="store_true")
     add_auth.add_argument("--dry-run", action="store_true")
 
     add_admin = add_sub.add_parser("admin", help="scaffold AdminBoard wiring")
-    add_admin.add_argument(
-        "--path",
-        default=".",
-        help="project directory (default: cwd)",
-    )
+    add_admin.add_argument("--path", default=".", help="project directory (default: cwd)")
     add_admin.add_argument(
         "--module",
-        default="admin_board.py",
-        help="output module filename (default: admin_board.py)",
+        default="app/forge/admin.py",
+        help="output module path (default: app/forge/admin.py)",
     )
-    add_admin.add_argument("--force", action="store_true", help="overwrite existing files")
+    add_admin.add_argument("--force", action="store_true")
     add_admin.add_argument("--dry-run", action="store_true")
 
-    new_p = sub.add_parser("new", help="scaffold a new Phzyx project")
+    new_p = sub.add_parser("new", help="scaffold a new Phzyx Forge project")
     new_p.add_argument("name", help="project directory name")
     new_p.add_argument(
         "--preset",
-        default="normal",
+        default="max",
         choices=["minimal", "normal", "max", "full"],
-        help="feature preset (default: normal)",
+        help="feature preset (default: max)",
     )
     new_p.add_argument(
         "--layout",
-        default="flat",
-        choices=["flat", "mvc", "clean", "phzyx-app"],
-        help="folder layout (default: flat)",
+        default="forge",
+        choices=["forge", "flat", "mvc", "clean", "phzyx-app"],
+        help="folder layout (default: forge; legacy names alias to forge)",
     )
-    new_p.add_argument(
-        "--path",
-        default=".",
-        help="parent directory for the new project (default: cwd)",
-    )
-    new_p.add_argument("--force", action="store_true", help="overwrite existing files")
+    new_p.add_argument("--path", default=".", help="parent directory (default: cwd)")
+    new_p.add_argument("--db", default="sqlite", choices=["sqlite", "postgres"])
+    new_p.add_argument("--force", action="store_true")
+    new_p.add_argument("--yes", "-y", action="store_true")
+    new_p.add_argument("--no-input", action="store_true")
     new_p.add_argument("--dry-run", action="store_true")
+    new_p.add_argument("--with-auth", action="store_true")
+    new_p.add_argument("--no-auth", action="store_true")
+    new_p.add_argument("--with-admin", action="store_true")
+    new_p.add_argument("--no-admin", action="store_true")
+
+    forge = sub.add_parser("forge", help="Forge project helpers")
+    forge_sub = forge.add_subparsers(dest="forge_command")
+    fin = forge_sub.add_parser("init", help="configure Forge in current or given directory")
+    fin.add_argument("--path", default=".", help="project root (default: cwd)")
+    fin.add_argument("--name", default=None, help="project name (default: directory name)")
+    fin.add_argument(
+        "--preset",
+        default="max",
+        choices=["minimal", "normal", "max", "full"],
+    )
+    fin.add_argument(
+        "--layout",
+        default="forge",
+        choices=["forge", "flat", "mvc", "clean", "phzyx-app"],
+    )
+    fin.add_argument("--db", default="sqlite", choices=["sqlite", "postgres"])
+    fin.add_argument("--force", action="store_true")
+    fin.add_argument("--yes", "-y", action="store_true")
+    fin.add_argument("--no-input", action="store_true")
+    fin.add_argument("--dry-run", action="store_true")
+    fin.add_argument("--skip-pyproject", action="store_true")
+    fin.add_argument("--skip-main", action="store_true")
+    fin.add_argument("--patch-main", action="store_true")
+    fin.add_argument("--no-auth", action="store_true")
+    fin.add_argument("--no-admin", action="store_true")
+    fin.add_argument("--with-docker", action="store_true")
 
     sub.add_parser("doctor", help="security and environment checks")
 
@@ -130,17 +152,35 @@ def main(argv: list[str] | None = None) -> int:
         return _cmd_add(ns)
     if ns.command == "new":
         return _cmd_new(ns)
+    if ns.command == "forge":
+        return _cmd_forge(ns)
     if ns.command == "doctor":
         return _cmd_doctor()
     parser.print_help()
     return 1
 
 
+def _auth_admin_flags(ns: argparse.Namespace) -> tuple[bool | None, bool | None]:
+    auth: bool | None = None
+    admin: bool | None = None
+    if getattr(ns, "no_auth", False):
+        auth = False
+    elif getattr(ns, "with_auth", False):
+        auth = True
+    if getattr(ns, "no_admin", False):
+        admin = False
+    elif getattr(ns, "with_admin", False):
+        admin = True
+    return auth, admin
+
+
 def _cmd_new(ns: argparse.Namespace) -> int:
     from pathlib import Path
 
     from phzyx.cli.new import new_project
+    from phzyx.cli.scaffold.write import ScaffoldError
 
+    auth, admin = _auth_admin_flags(ns)
     try:
         paths = new_project(
             ns.name,
@@ -149,18 +189,69 @@ def _cmd_new(ns: argparse.Namespace) -> int:
             parent=Path(ns.path),
             force=bool(ns.force),
             dry_run=bool(ns.dry_run),
+            yes=bool(ns.yes),
+            no_input=bool(ns.no_input),
+            db=ns.db,
+            auth=auth,
+            admin=admin,
         )
-    except (FileExistsError, ValueError, KeyError) as exc:
+    except (FileExistsError, ValueError, KeyError, ScaffoldError) as exc:
         print(f"error: {exc}", file=sys.stderr)
         return 2
     verb = "would write" if ns.dry_run else "wrote"
     for p in paths:
         print(f"{verb} {p}")
     if not ns.dry_run:
-        print(f"next: cd {ns.name} && uv sync && uv run uvicorn app.main:app --reload")
+        print(f"next: cd {ns.name} && uv sync")
+        print("      cp .env.example .env")
+        print("      uv run phzyx db push --models app.forge.registry:ALL_MODELS --yes")
+        print("      uv run uvicorn app.main:app --reload")
         print("      phzyx doctor")
-        print("tip:  uv add phzyx-auth   # optional identity (does not block)")
-        print("      uv add phzyx-forge  # full Forge line if not already")
+    return 0
+
+
+def _cmd_forge(ns: argparse.Namespace) -> int:
+    from pathlib import Path
+
+    from phzyx.cli.forge_init import forge_init
+    from phzyx.cli.scaffold.write import ScaffoldError
+
+    if ns.forge_command != "init":
+        print("error: unknown forge command (try: phzyx forge init)", file=sys.stderr)
+        return 1
+    auth = False if ns.no_auth else None
+    admin = False if ns.no_admin else None
+    docker = True if ns.with_docker else None
+    try:
+        paths, post, warnings = forge_init(
+            Path(ns.path),
+            name=ns.name,
+            preset=ns.preset,
+            layout=ns.layout,
+            db=ns.db,
+            auth=auth,
+            admin=admin,
+            docker=docker,
+            force=bool(ns.force),
+            yes=bool(ns.yes),
+            no_input=bool(ns.no_input),
+            dry_run=bool(ns.dry_run),
+            skip_pyproject=bool(ns.skip_pyproject),
+            skip_main=bool(ns.skip_main),
+            patch_main=bool(ns.patch_main),
+        )
+    except (FileExistsError, ValueError, KeyError, ScaffoldError, NotADirectoryError) as exc:
+        print(f"error: {exc}", file=sys.stderr)
+        return 2
+    verb = "would write" if ns.dry_run else "wrote"
+    for p in paths:
+        print(f"{verb} {p}")
+    for w in warnings:
+        print(f"warning: {w}", file=sys.stderr)
+    if not ns.dry_run:
+        print("next:")
+        for step in post:
+            print(f"  {step}")
     return 0
 
 
@@ -193,6 +284,12 @@ def _cmd_add(ns: argparse.Namespace) -> int:
             print(f"{verb} {p}")
         if not ns.dry_run:
             print("next: uv add 'phzyx-auth[fastapi]' && set PHZYX_AUTH_SECRET")
+            if not (Path(ns.path) / "app" / "forge" / "db.py").is_file():
+                print(
+                    "warning: no app/forge/db.py — provide session_factory "
+                    "or run: phzyx forge init",
+                    file=sys.stderr,
+                )
         return 0
     if ns.add_command == "admin":
         from phzyx.cli.add_admin import add_admin
@@ -211,7 +308,16 @@ def _cmd_add(ns: argparse.Namespace) -> int:
         for p in paths:
             print(f"{verb} {p}")
         if not ns.dry_run:
-            print("next: uv add phzyx-admin-fastapi && mount_admin(app, ...)")
+            print("next: uv add phzyx-admin-fastapi && mount_admin / mount_forge")
+            print(
+                "warning: Admin AllowAll is dev-only — pass authz= in production",
+                file=sys.stderr,
+            )
+            if not (Path(ns.path) / "app" / "forge" / "db.py").is_file():
+                print(
+                    "warning: no app/forge/db.py — run: phzyx forge init",
+                    file=sys.stderr,
+                )
         return 0
     print("error: unknown add command (try: phzyx add auth|admin)", file=sys.stderr)
     return 1

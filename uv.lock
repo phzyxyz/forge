@@ -1169,15 +1169,46 @@ dependencies = [
     { name = "phzyx-schema" },
 ]
 
+[package.optional-dependencies]
+auth = [
+    { name = "phzyx-auth", extra = ["fastapi"] },
+]
+full = [
+    { name = "aiosqlite" },
+    { name = "phzyx-auth", extra = ["fastapi"] },
+]
+mssql = [
+    { name = "pymssql" },
+]
+mysql = [
+    { name = "pymysql" },
+]
+postgres = [
+    { name = "asyncpg" },
+    { name = "psycopg", extra = ["binary"] },
+]
+sqlite = [
+    { name = "aiosqlite" },
+]
+
 [package.metadata]
 requires-dist = [
+    { name = "aiosqlite", marker = "extra == 'full'" },
+    { name = "aiosqlite", marker = "extra == 'sqlite'" },
+    { name = "asyncpg", marker = "extra == 'postgres'" },
     { name = "phzyx-admin", editable = "packages/admin" },
     { name = "phzyx-admin-fastapi", editable = "packages/admin-fastapi" },
+    { name = "phzyx-auth", extras = ["fastapi"], marker = "extra == 'auth'", editable = "packages/auth" },
+    { name = "phzyx-auth", extras = ["fastapi"], marker = "extra == 'full'", editable = "packages/auth" },
     { name = "phzyx-cli", editable = "packages/cli" },
     { name = "phzyx-engine", editable = "packages/engine" },
     { name = "phzyx-orm", editable = "packages/orm" },
     { name = "phzyx-schema", editable = "packages/schema" },
+    { name = "psycopg", extras = ["binary"], marker = "extra == 'postgres'", specifier = ">=3" },
+    { name = "pymssql", marker = "extra == 'mssql'", specifier = ">=2.3" },
+    { name = "pymysql", marker = "extra == 'mysql'" },
 ]
+provides-extras = ["sqlite", "postgres", "mysql", "mssql", "auth", "full"]
 
 [[package]]
 name = "phzyx-orm"

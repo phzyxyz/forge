@@ -125,7 +125,7 @@ SPA cookie login: `POST /auth/login` → set cookies + `csrf_token`; send `X-CSR
 def add_auth(
     target: Path,
     *,
-    module_name: str = "auth.py",
+    module_name: str = "app/forge/auth.py",
     force: bool = False,
     dry_run: bool = False,
 ) -> list[Path]:
@@ -138,12 +138,19 @@ def add_auth(
     readme = target / "AUTH.md"
     written: list[Path] = []
 
-    for path, content in ((auth_py, AUTH_MODULE), (readme, README_SNIPPET)):
+    content = AUTH_MODULE
+    if module_name.replace("\\", "/").endswith("forge/auth.py"):
+        from phzyx.cli.scaffold.templates import forge_auth
+
+        content = forge_auth()
+
+    for path, body in ((auth_py, content), (readme, README_SNIPPET)):
         if path.exists() and not force:
             raise FileExistsError(f"refusing to overwrite {path} (use --force)")
         if dry_run:
             written.append(path)
             continue
-        path.write_text(content, encoding="utf-8")
+        path.parent.mkdir(parents=True, exist_ok=True)
+        path.write_text(body, encoding="utf-8")
         written.append(path)
     return written

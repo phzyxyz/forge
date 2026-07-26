@@ -15,7 +15,15 @@ dependencies = [
   "phzyx-cli==0.1.0",
 ]
 
-# Optional batteries (not part of Forge meta): phzyx-auth, phzyx-cache, litestar adapter.
+[project.optional-dependencies]
+sqlite = ["aiosqlite"]
+postgres = ["asyncpg", "psycopg[binary]>=3"]
+mysql = ["pymysql"]
+mssql = ["pymssql>=2.3"]
+auth = ["phzyx-auth[fastapi]"]
+full = ["aiosqlite", "phzyx-auth[fastapi]"]
+
+# Optional batteries also: phzyx-cache, litestar adapter (install separately).
 
 [tool.uv.sources]
 phzyx-schema = { workspace = true }
@@ -24,6 +32,7 @@ phzyx-orm = { workspace = true }
 phzyx-admin = { workspace = true }
 phzyx-admin-fastapi = { workspace = true }
 phzyx-cli = { workspace = true }
+phzyx-auth = { workspace = true }
 
 [build-system]
 requires = ["hatchling"]
