@@ -9,6 +9,7 @@ export function parseHash(hash: string): AppRoute {
   if (parts[0] === "media") return { page: "media" };
   if (parts[0] === "schema") return { page: "schema" };
   if (parts[0] === "audit") return { page: "audit" };
+  if (parts[0] === "apidocs" || parts[0] === "api-docs") return { page: "apidocs" };
   if (parts[0] === "settings") return { page: "settings" };
   if (parts[0] === "resources" && parts[1]) {
     return { page: "resource", name: decodeURIComponent(parts[1]) };
@@ -28,6 +29,8 @@ export function toHash(route: AppRoute): string {
       return "#/schema";
     case "audit":
       return "#/audit";
+    case "apidocs":
+      return "#/apidocs";
     case "settings":
       return "#/settings";
     case "resource":

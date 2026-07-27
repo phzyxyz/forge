@@ -53,6 +53,11 @@ class AdminBoard:
         enable_csp: bool = True,
         database_url: str | None = None,
         branding: BrandingConfig | dict[str, Any] | None = None,
+        openapi_path_prefix: str | None = None,
+        openapi_exclude_prefix: str | None = None,
+        mount_apiboard: bool = True,
+        apiboard_path: str = "/apiboard",
+        apidocs_redirect: bool = False,
     ) -> None:
         self.theme = normalize_theme(theme)
         self.prefix = prefix.rstrip("/") or "/admin"
@@ -60,6 +65,11 @@ class AdminBoard:
         self.field_authz = field_authz or AllowAllFields()
         self.audit = audit if audit is not None else AuditLog()
         self.session_factory = session_factory
+        self.openapi_path_prefix = openapi_path_prefix
+        self.openapi_exclude_prefix = openapi_exclude_prefix
+        self.mount_apiboard = mount_apiboard
+        self.apiboard_path = (apiboard_path or "/apiboard").rstrip("/") or "/apiboard"
+        self.apidocs_redirect = apidocs_redirect
         if isinstance(branding, BrandingConfig):
             brand = branding
         elif isinstance(branding, dict):
@@ -106,13 +116,39 @@ class AdminBoard:
             @app.middleware("http")
             async def _phzyx_security_headers(request: Any, call_next: Any) -> Any:
                 response = await call_next(request)
-                if request.url.path.startswith(self.prefix):
+                path = request.url.path
+                if path.startswith(self.prefix) or path.startswith(self.apiboard_path):
                     for k, v in csp_headers().items():
                         response.headers.setdefault(k, v)
                 return response
 
         static_dir = _spa_static_dir()
         if static_dir is not None and static_dir.is_dir():
+            # API Board — separate product URL (same SPA bundle, different boot mode)
+            if mount_apiboard:
+                from fastapi.responses import RedirectResponse
+
+                apiboard = self.apiboard_path
+
+                @app.get(apiboard, include_in_schema=False)
+                def _apiboard_slash() -> Any:
+                    return RedirectResponse(url=f"{apiboard}/", status_code=307)
+
+                app.mount(
+                    f"{apiboard}/",
+                    StaticFiles(directory=str(static_dir), html=True),
+                    name="phzyx-apiboard",
+                )
+
+            # Optional legacy short link
+            if apidocs_redirect:
+
+                @app.get("/apidocs", include_in_schema=False)
+                def _apidocs_to_apiboard() -> Any:
+                    from fastapi.responses import RedirectResponse
+
+                    return RedirectResponse(url=f"{self.apiboard_path}/", status_code=307)
+
             app.mount(
                 self.prefix,
                 StaticFiles(directory=str(static_dir), html=True),

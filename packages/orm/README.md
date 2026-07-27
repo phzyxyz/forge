@@ -37,7 +37,16 @@ engine = create_async_engine("sqlite+aiosqlite:///./app.db")
 async with AsyncSession(await engine.connect(), dialect=Dialect.SQLITE) as session:
     await session.add(User(email="a@b.co"))
     rows = await session.query(User, where=[eq("email", "a@b.co")])
+    page = await session.query_keyset(User, limit=50)  # deep pages without OFFSET
+    await session.update_by_pk(User, 1, email="b@c.co")  # single-trip update
 ```
+
+### Postgres pools (FastAPI)
+
+Prefer **asyncpg.Pool** (or engine pool) sized to concurrency; do **not** open a
+new TCP connection per request. Multi-worker Uvicorn: budget
+`workers × pool_max` under Postgres `max_connections`. Use
+`AsyncSession(..., read_only=True)` on pure-read routes if you want write guards.
 
 ## Sync (mirror)
 

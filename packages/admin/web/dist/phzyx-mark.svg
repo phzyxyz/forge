@@ -1,0 +1,61 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!--
+  Phzyx mark — physics (∫ integration) + quantum orbits + binary
+  Colors: cyan #22D3EE · violet #8B5CF6 · deep #0B1020
+-->
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 128 128" role="img" aria-label="Phzyx mark">
+  <defs>
+    <linearGradient id="phzyxIntegral" x1="28" y1="16" x2="100" y2="112" gradientUnits="userSpaceOnUse">
+      <stop offset="0%" stop-color="#67E8F9"/>
+      <stop offset="45%" stop-color="#38BDF8"/>
+      <stop offset="100%" stop-color="#818CF8"/>
+    </linearGradient>
+    <linearGradient id="phzyxOrbitA" x1="10" y1="64" x2="118" y2="64" gradientUnits="userSpaceOnUse">
+      <stop offset="0%" stop-color="#A78BFA" stop-opacity="0.2"/>
+      <stop offset="50%" stop-color="#22D3EE"/>
+      <stop offset="100%" stop-color="#8B5CF6" stop-opacity="0.35"/>
+    </linearGradient>
+    <linearGradient id="phzyxOrbitB" x1="64" y1="12" x2="64" y2="116" gradientUnits="userSpaceOnUse">
+      <stop offset="0%" stop-color="#C4B5FD"/>
+      <stop offset="100%" stop-color="#22D3EE"/>
+    </linearGradient>
+    <filter id="softGlow" x="-40%" y="-40%" width="180%" height="180%">
+      <feGaussianBlur stdDeviation="1.2" result="b"/>
+      <feMerge>
+        <feMergeNode in="b"/>
+        <feMergeNode in="SourceGraphic"/>
+      </feMerge>
+    </filter>
+  </defs>
+
+  <!-- Quantum orbits -->
+  <g fill="none" stroke-linecap="round" filter="url(#softGlow)">
+    <ellipse cx="64" cy="64" rx="46" ry="18" stroke="url(#phzyxOrbitA)" stroke-width="2.2" transform="rotate(-28 64 64)"/>
+    <ellipse cx="64" cy="64" rx="46" ry="18" stroke="url(#phzyxOrbitB)" stroke-width="1.8" transform="rotate(32 64 64)" opacity="0.9"/>
+    <ellipse cx="64" cy="64" rx="38" ry="14" stroke="#67E8F9" stroke-width="1.2" transform="rotate(78 64 64)" opacity="0.55" stroke-dasharray="2 5"/>
+  </g>
+
+  <!-- Binary dust (0/1 as micro ticks) -->
+  <g font-family="ui-monospace, SFMono-Regular, Menlo, monospace" font-size="7" fill="#67E8F9" opacity="0.85">
+    <text x="22" y="40">01</text>
+    <text x="96" y="36">10</text>
+    <text x="18" y="92">10</text>
+    <text x="94" y="98">01</text>
+  </g>
+  <g fill="#A5F3FC">
+    <circle cx="30" cy="54" r="1.6"/>
+    <circle cx="98" cy="58" r="1.4"/>
+    <circle cx="48" cy="28" r="1.5"/>
+    <circle cx="78" cy="100" r="1.5"/>
+    <circle cx="104" cy="78" r="1.3"/>
+  </g>
+
+  <!-- Integration symbol — stretched vertically for lockup balance with wordmark -->
+  <g transform="translate(64 64) scale(1 1.22) translate(-64 -64)">
+    <path
+      filter="url(#softGlow)"
+      fill="url(#phzyxIntegral)"
+      d="M72.2 18.5c6.4 0 11.2 3.2 11.2 8.1 0 1.5-.5 2.9-1.5 4-1.1-3.6-4.6-5.8-9.1-5.8-5.8 0-9.6 4.1-9.6 10.4v16.2c0 3.2-1.1 5.5-3.3 6.9 2.2 1.3 3.3 3.7 3.3 6.9v17.1c0 6.4 3.8 10.5 9.6 10.5 4.6 0 8.1-2.3 9.2-6 1 .9 1.5 2.2 1.5 3.7 0 5-4.9 8.3-11.4 8.3-9.9 0-16.4-6.6-16.4-16.5V69.1c0-2.4-.9-3.9-2.8-4.8 1.9-.9 2.8-2.4 2.8-4.8V36.9c0-9.9 6.5-16.4 16.5-16.4z"
+    />
+  </g>
+</svg>

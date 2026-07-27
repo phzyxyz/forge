@@ -143,12 +143,12 @@ export const useShellStore = create<ShellState>()(
       t: (key, fallback) => get().i18n[key] || fallback || key,
     }),
     {
-      name: "phzyx.admin.shell.v2",
+      name: "phzyx.admin.shell.v3",
       partialize: (s) => ({
         themePref: s.themePref,
         reducedTransparency: s.reducedTransparency,
         density: s.density,
-        sidebarCollapsed: s.sidebarCollapsed,
+        // sidebar stays expanded by default each load (collapse is session-only)
         demoForced: s.demoForced,
       }),
     },

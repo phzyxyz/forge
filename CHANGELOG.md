@@ -18,6 +18,8 @@ Packages in this monorepo share a coordinated version for the 0.1 line:
 
 ### Added
 
+- **API Board (`/apiboard/`):** standalone Forge API Client (same SPA mount as AdminBoard). Live OpenAPI collection, card grid + request console, sample bodies, environments with `{{vars}}`, platform-bound `baseUrl`, sandbox (`sessionStorage`) vs workspace (`localStorage`) JSON (`phzyx.forge.client` v1), history/saved responses, export/import. Docs: `/forge/apiboard`.
+- **Website:** hub hero mini **stack-press** card (realistic 250k-row median RPS) + full table on `/stats#benchmarks` from committed `bench.snapshot.json`.
 - **CLI v1 scaffold:** `phzyx new` / `phzyx forge init` emit async FastAPI + `app/forge/` (dual session, registry, Item CRUD, Admin+auth on max, SECURITY.md). Legacy layouts alias to forge.
 - **phzyx-forge extras:** `sqlite`, `postgres`, `mysql`, `mssql`, `auth`, `full`.
 - **Docs:** `/forge/getting-started` (small→medium FastAPI), guides (layout, dual-session, registry, push-vs-migrate), security, expanded CLI/tutorials/compare.

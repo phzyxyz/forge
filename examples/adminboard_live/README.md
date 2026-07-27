@@ -6,7 +6,8 @@ Full-featured AdminBoard SPA + FastAPI + SQLite, with **in-app login**.
 
 | | |
 |--|--|
-| **URL** | http://localhost:9100/admin/ |
+| **AdminBoard** | http://localhost:9100/admin/ |
+| **API Board** | http://localhost:9100/apiboard/ |
 | **Username** | `admin` |
 | **Password** | `phzyx` |
 
@@ -36,6 +37,7 @@ docker compose -f examples/adminboard_live/docker-compose.yml up --build -d
 - Media library view for file keys
 - Settings: Magical White / Stellar Dark / Ambient, density
 - ⌘K command palette
+- **API Board** at `/apiboard/` — Forge API Client (try-it, envs, sandbox/workspace)
 
 ## Database
 

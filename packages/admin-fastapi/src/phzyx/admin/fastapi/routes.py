@@ -7,6 +7,11 @@ from typing import TYPE_CHECKING, Any
 from phzyx.admin.auth import AllowAllFields, require_authz
 from phzyx.admin.errors import AdminError
 from phzyx.admin.layouts import LayoutPrefs
+from phzyx.admin.openapi_export import (
+    count_operations,
+    filter_openapi_paths,
+    openapi_to_postman_collection,
+)
 from phzyx.admin.opener import open_meta_for_key
 from phzyx.admin.service import AdminService
 from phzyx.admin.settings import AdminSettings
@@ -74,8 +79,103 @@ def create_admin_router(board: AdminBoard) -> APIRouter:
                 "global_search": True,
                 "dashboard_widgets": True,
                 "i18n": True,
+                "apidocs": True,
+                "apiboard": True,
             },
+            "apiboard_path": getattr(board, "apiboard_path", "/apiboard"),
         }
+
+    def _openapi_spec(request: Request) -> dict[str, Any]:
+        """Live OpenAPI from the host FastAPI app (in-process)."""
+        app = request.app
+        raw = app.openapi() if hasattr(app, "openapi") else {}
+        if not isinstance(raw, dict):
+            raw = {}
+        return filter_openapi_paths(
+            raw,
+            path_prefix=getattr(board, "openapi_path_prefix", None),
+            exclude_prefix=getattr(board, "openapi_exclude_prefix", None),
+        )
+
+    @router.get("/openapi")
+    def openapi_json(
+        request: Request,
+        x_api_key: str | None = Header(default=None),
+    ) -> Any:
+        """Host OpenAPI 3 document (staff). Source for AdminBoard API docs + exports."""
+        p = principal(request, x_api_key)
+        require_authz(board.authz, p, "list", "apidocs")
+        try:
+            return _openapi_spec(request)
+        except Exception as exc:  # noqa: BLE001 — surface cleanly to SPA
+            return JSONResponse(
+                {"detail": f"openapi unavailable: {exc}"},
+                status_code=500,
+            )
+
+    def _collection_export(request: Request) -> JSONResponse:
+        spec = _openapi_spec(request)
+        base = str(request.base_url).rstrip("/")
+        coll = openapi_to_postman_collection(spec, base_url=base)
+        return JSONResponse(
+            coll,
+            headers={
+                "Content-Disposition": 'attachment; filename="api-collection.json"',
+            },
+        )
+
+    @router.get("/openapi/collection")
+    def openapi_collection(
+        request: Request,
+        x_api_key: str | None = Header(default=None),
+    ) -> Any:
+        """Portable API client collection JSON (OpenAPI-derived; staff only)."""
+        p = principal(request, x_api_key)
+        require_authz(board.authz, p, "list", "apidocs")
+        try:
+            return _collection_export(request)
+        except Exception as exc:  # noqa: BLE001
+            return JSONResponse(
+                {"detail": f"collection export failed: {exc}"},
+                status_code=500,
+            )
+
+    @router.get("/openapi/postman", include_in_schema=False)
+    def openapi_postman_alias(
+        request: Request,
+        x_api_key: str | None = Header(default=None),
+    ) -> Any:
+        """Alias of /openapi/collection (stable filename for older clients)."""
+        p = principal(request, x_api_key)
+        require_authz(board.authz, p, "list", "apidocs")
+        try:
+            return _collection_export(request)
+        except Exception as exc:  # noqa: BLE001
+            return JSONResponse(
+                {"detail": f"collection export failed: {exc}"},
+                status_code=500,
+            )
+
+    @router.get("/openapi/meta")
+    def openapi_meta(
+        request: Request,
+        x_api_key: str | None = Header(default=None),
+    ) -> Any:
+        """Lightweight OpenAPI stats for the API docs page header."""
+        p = principal(request, x_api_key)
+        require_authz(board.authz, p, "list", "apidocs")
+        try:
+            spec = _openapi_spec(request)
+            info = spec.get("info") or {}
+            return {
+                "title": info.get("title") or "API",
+                "version": info.get("version") or "",
+                "operations": count_operations(spec),
+                "base_url": str(request.base_url).rstrip("/"),
+                "paths": len(spec.get("paths") or {}),
+            }
+        except Exception as exc:  # noqa: BLE001
+            return JSONResponse({"detail": str(exc)}, status_code=500)
 
     @router.get("/search")
     def global_search_api(
@@ -207,12 +307,12 @@ def create_admin_router(board: AdminBoard) -> APIRouter:
         page_size: int = 50,
         search: str | None = None,
         cursor: str | None = None,
-        pagination: str = "offset",
+        pagination: str = "keyset",
         x_api_key: str | None = Header(default=None),
     ) -> dict[str, Any]:
         try:
             filters = _parse_filters(request)
-            mode = pagination if pagination in {"offset", "keyset"} else "offset"
+            mode = pagination if pagination in {"offset", "keyset"} else "keyset"
             result = service().list(
                 name,
                 page=page,

@@ -43,6 +43,31 @@ from phzyx.orm.soft_delete import soft_delete
 from phzyx.schema.model import get_table_info
 
 
+def _resolve_list_pagination(
+    pagination: str,
+    *,
+    page: int,
+    cursor: str | None,
+) -> str:
+    """Choose keyset vs offset without breaking classic page-number clients.
+
+    - Explicit ``offset`` → offset.
+    - Any ``cursor`` → keyset.
+    - ``keyset`` (default) on page 1 → keyset.
+    - ``keyset`` with ``page > 1`` and no cursor → offset (compat).
+    """
+    mode = (pagination or "keyset").lower()
+    if mode not in {"offset", "keyset"}:
+        mode = "keyset"
+    if cursor is not None:
+        return "keyset"
+    if mode == "offset":
+        return "offset"
+    if page > 1:
+        return "offset"
+    return "keyset"
+
+
 @dataclass
 class ListResult:
     items: list[dict[str, Any]]
@@ -52,7 +77,7 @@ class ListResult:
     next_cursor: str | None = None
     prev_cursor: str | None = None
     has_more: bool = False
-    pagination: str = "offset"
+    pagination: str = "keyset"
 
 
 @dataclass
@@ -163,17 +188,24 @@ class AdminService:
         search: str | None = None,
         cursor: str | None = None,
         filters: dict[str, str] | None = None,
-        pagination: str = "offset",
+        pagination: str = "keyset",
         principal: Any | None = None,
     ) -> ListResult:
+        """List records.
+
+        Default pagination is **keyset** (stable deep pages). Offset remains fully
+        supported via ``pagination="offset"`` or classic ``page > 1`` without a
+        cursor (compat fallback so older clients keep working).
+        """
         res = self.get_resource(name)
         require_authz(self.authz, principal, "list", name)
         page = max(1, page)
         page_size = min(max(1, page_size), 200)
         where = self._build_where(res, search=search, filters=filters)
         order = order_from_columns(default_order_columns(res.model))
-        use_keyset = pagination == "keyset" or cursor is not None
-        if use_keyset:
+        mode = _resolve_list_pagination(pagination, page=page, cursor=cursor)
+        total = self.session.count(res.model, where=where)
+        if mode == "keyset":
             page_data = self.session.query_keyset(
                 res.model,
                 where=where,
@@ -182,7 +214,6 @@ class AdminService:
                 cursor=cursor,
             )
             items = [self._serialize(res, r, principal=principal) for r in page_data.items]
-            total = len(self.session.query(res.model, where=where))
             return ListResult(
                 items=items,
                 total=total,
@@ -200,13 +231,14 @@ class AdminService:
             limit=page_size,
             offset=(page - 1) * page_size,
         )
-        all_rows = self.session.query(res.model, where=where)
         items = [self._serialize(res, r, principal=principal) for r in rows]
+        has_more = (page * page_size) < total
         return ListResult(
             items=items,
-            total=len(all_rows),
+            total=total,
             page=page,
             page_size=page_size,
+            has_more=has_more,
             pagination="offset",
         )
 

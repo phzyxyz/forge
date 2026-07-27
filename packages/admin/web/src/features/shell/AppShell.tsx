@@ -1,14 +1,20 @@
 import { useEffect, useMemo, useState } from "react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
-import type { ResourceSchema } from "../../shared/api/types";
+import type { ResourceSchema, ThemePref } from "../../shared/api/types";
 import { FORBIDDEN_EVENT } from "../../shared/api/client";
 import { applyTheme, useShellStore } from "../../shared/stores/shell";
 import {
+  IconCode,
+  IconDatabase,
   IconImage,
   IconLayout,
+  IconMonitor,
+  IconMoon,
   IconPanel,
+  IconShield,
   IconSettings,
-  IconTable,
+  IconSun,
+  resourceNavIcon,
 } from "../../shared/ui/Icons";
 import { useSessionStore } from "../auth/sessionStore";
 import { MediaPage } from "../media/MediaPage";
@@ -20,6 +26,36 @@ import { SettingsPage } from "../settings/SettingsPage";
 import { AuditPage } from "../trust/AuditPage";
 import { ForbiddenBanner } from "../trust/ForbiddenBanner";
 import { CommandPalette } from "./CommandPalette";
+
+const THEME_CYCLE: ThemePref[] = ["stellar-dark", "magical-white", "system-ambient"];
+
+function themeMeta(pref: ThemePref): {
+  /** Short line in the sidebar (must read as a theme control). */
+  label: string;
+  /** Longer tooltip */
+  hint: string;
+  Icon: typeof IconSun;
+} {
+  if (pref === "magical-white") {
+    return {
+      label: "Theme · Light",
+      hint: "Theme: Magical White (light). Click to cycle themes.",
+      Icon: IconSun,
+    };
+  }
+  if (pref === "system-ambient") {
+    return {
+      label: "Theme · System",
+      hint: "Theme: System Ambient (follows OS). Click to cycle themes.",
+      Icon: IconMonitor,
+    };
+  }
+  return {
+    label: "Theme · Dark",
+    hint: "Theme: Stellar Dark. Click to cycle themes.",
+    Icon: IconMoon,
+  };
+}
 
 export function AppShell({
   resources,
@@ -35,6 +71,7 @@ export function AppShell({
     sidebarCollapsed,
     toggleSidebar,
     themePref,
+    setThemePref,
     reducedTransparency,
     density,
     commandOpen,
@@ -133,6 +170,14 @@ export function AppShell({
     return "AdminBoard";
   }, [route, resources]);
 
+  const theme = themeMeta(themePref);
+
+  function cycleTheme() {
+    const i = THEME_CYCLE.indexOf(themePref);
+    const next = THEME_CYCLE[(i + 1) % THEME_CYCLE.length]!;
+    setThemePref(next);
+  }
+
   function signOut() {
     const csrf = useSessionStore.getState().csrfToken;
     void fetch("/auth/logout", {
@@ -154,82 +199,130 @@ export function AppShell({
       className={`shell${sidebarCollapsed ? " collapsed" : ""}`}
       data-testid="app-shell"
     >
-      <aside className="sidebar">
-        <div className="brand">
-          <div className="brand-mark" />
+      <aside className="sidebar" data-testid="sidebar">
+        <div className="brand" title={branding.header_title}>
+          <img
+            className="brand-mark"
+            src={`${import.meta.env.BASE_URL}phzyx-mark.svg`}
+            alt="Phzyx"
+            width={32}
+            height={32}
+            draggable={false}
+          />
           <div className="brand-text">
             <strong>{branding.header_title}</strong>
             <span>{branding.header_subtitle}</span>
           </div>
         </div>
 
-        <div className="nav-section">Workspace</div>
-        <button
-          type="button"
-          className={`nav-item${route.page === "overview" ? " active" : ""}`}
-          data-testid="nav-overview"
-          onClick={() => setRoute({ page: "overview" })}
-        >
-          <IconLayout className="ico" />
-          <span className="nav-label">{t("nav.overview", "Overview")}</span>
-        </button>
-
-        <div className="nav-section">{t("nav.resources", "Resources")}</div>
-        {resources.map((r) => (
+        <nav className="sidebar-nav" aria-label="Primary">
+          <div className="nav-section">Workspace</div>
           <button
-            key={r.name}
             type="button"
-            className={`nav-item${route.page === "resource" && route.name === r.name ? " active" : ""}`}
-            data-testid={`nav-${r.name}`}
-            onClick={() => setRoute({ page: "resource", name: r.name })}
+            className={`nav-item${route.page === "overview" ? " active" : ""}`}
+            data-testid="nav-overview"
+            title="Overview"
+            onClick={() => setRoute({ page: "overview" })}
           >
-            <IconTable className="ico" />
-            <span className="nav-label">{r.label}</span>
+            <IconLayout className="ico" />
+            <span className="nav-label">{t("nav.overview", "Overview")}</span>
           </button>
-        ))}
 
-        <div className="nav-section">Library</div>
-        <button
-          type="button"
-          className={`nav-item${route.page === "media" ? " active" : ""}`}
-          data-testid="nav-media"
-          onClick={() => setRoute({ page: "media" })}
-        >
-          <IconImage className="ico" />
-          <span className="nav-label">Media</span>
-        </button>
-        <button
-          type="button"
-          className={`nav-item${route.page === "schema" ? " active" : ""}`}
-          data-testid="nav-schema"
-          onClick={() => setRoute({ page: "schema" })}
-        >
-          <IconTable className="ico" />
-          <span className="nav-label">Schema</span>
-        </button>
-        <button
-          type="button"
-          className={`nav-item${route.page === "audit" ? " active" : ""}`}
-          data-testid="nav-audit"
-          onClick={() => setRoute({ page: "audit" })}
-        >
-          <IconPanel className="ico" />
-          <span className="nav-label">Audit</span>
-        </button>
-        <button
-          type="button"
-          className={`nav-item${route.page === "settings" ? " active" : ""}`}
-          data-testid="nav-settings"
-          onClick={() => setRoute({ page: "settings" })}
-        >
-          <IconSettings className="ico" />
-          <span className="nav-label">{t("nav.settings", "Settings")}</span>
-        </button>
+          <div className="nav-section">{t("nav.resources", "Resources")}</div>
+          {resources.map((r) => {
+            const Icon = resourceNavIcon(r.name);
+            const active = route.page === "resource" && route.name === r.name;
+            return (
+              <button
+                key={r.name}
+                type="button"
+                className={`nav-item${active ? " active" : ""}`}
+                data-testid={`nav-${r.name}`}
+                title={r.label}
+                onClick={() => setRoute({ page: "resource", name: r.name })}
+              >
+                <Icon className="ico" />
+                <span className="nav-label">{r.label}</span>
+              </button>
+            );
+          })}
+
+          <div className="nav-section">Library</div>
+          <button
+            type="button"
+            className={`nav-item${route.page === "media" ? " active" : ""}`}
+            data-testid="nav-media"
+            title="Media"
+            onClick={() => setRoute({ page: "media" })}
+          >
+            <IconImage className="ico" />
+            <span className="nav-label">Media</span>
+          </button>
+          <button
+            type="button"
+            className={`nav-item${route.page === "schema" ? " active" : ""}`}
+            data-testid="nav-schema"
+            title="Schema"
+            onClick={() => setRoute({ page: "schema" })}
+          >
+            <IconDatabase className="ico" />
+            <span className="nav-label">Schema</span>
+          </button>
+          <button
+            type="button"
+            className={`nav-item${route.page === "audit" ? " active" : ""}`}
+            data-testid="nav-audit"
+            title="Audit"
+            onClick={() => setRoute({ page: "audit" })}
+          >
+            <IconShield className="ico" />
+            <span className="nav-label">Audit</span>
+          </button>
+          <a
+            className="nav-item"
+            data-testid="nav-apiboard"
+            title="API Board (separate app surface)"
+            href="/apiboard/"
+          >
+            <IconCode className="ico" />
+            <span className="nav-label">API Board</span>
+          </a>
+          <button
+            type="button"
+            className={`nav-item${route.page === "settings" ? " active" : ""}`}
+            data-testid="nav-settings"
+            title="Settings"
+            onClick={() => setRoute({ page: "settings" })}
+          >
+            <IconSettings className="ico" />
+            <span className="nav-label">{t("nav.settings", "Settings")}</span>
+          </button>
+        </nav>
 
         <div className="sidebar-foot">
-          <button type="button" className="btn btn-ghost btn-sm" onClick={toggleSidebar}>
-            <IconPanel />
-            <span className="hide-collapsed">{sidebarCollapsed ? "Expand" : "Collapse"}</span>
+          <button
+            type="button"
+            className="sidebar-foot-btn"
+            data-testid="theme-cycle"
+            title={theme.hint}
+            aria-label={theme.hint}
+            onClick={cycleTheme}
+          >
+            <theme.Icon className="ico" />
+            <span className="hide-collapsed">{theme.label}</span>
+          </button>
+          <button
+            type="button"
+            className="sidebar-foot-btn"
+            data-testid="sidebar-collapse"
+            title={sidebarCollapsed ? "Expand sidebar" : "Collapse sidebar"}
+            aria-label={sidebarCollapsed ? "Expand sidebar" : "Collapse sidebar"}
+            onClick={toggleSidebar}
+          >
+            <IconPanel className="ico" />
+            <span className="hide-collapsed">
+              {sidebarCollapsed ? "Expand" : "Collapse"}
+            </span>
           </button>
         </div>
       </aside>
@@ -326,14 +419,14 @@ export function AppShell({
       />
 
       <div className="toast-stack">
-        {toasts.map((t) => (
+        {toasts.map((toastItem) => (
           <div
-            key={t.id}
-            className={`toast${t.kind === "error" ? " error" : ""}`}
+            key={toastItem.id}
+            className={`toast${toastItem.kind === "error" ? " error" : ""}`}
             role="status"
-            onClick={() => dismissToast(t.id)}
+            onClick={() => dismissToast(toastItem.id)}
           >
-            {t.message}
+            {toastItem.message}
           </div>
         ))}
       </div>

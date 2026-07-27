@@ -417,8 +417,8 @@ def build_assets(n: int = 48) -> list[dict[str, Any]]:
     paths = [
         "brand/logo.svg",
         "brand/wordmark.svg",
-        "marketing/hero.svg",
-        "marketing/banner.svg",
+        "site/hero.svg",
+        "site/banner.svg",
         "avatars/ops.svg",
         "avatars/dev.svg",
         "docs/readme.txt",

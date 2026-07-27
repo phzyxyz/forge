@@ -13,6 +13,22 @@ async with AsyncSession(await engine.connect(), dialect=engine.dialect) as sessi
         order_by=[desc("id")],
         limit=50,
     )
+    page = await session.query_keyset(User, limit=50)  # prefer over deep OFFSET
+    n = await session.count(User, where=[eq("active", True)])
+    await session.update_by_pk(User, 1, email="new@x.co")  # no prior SELECT
+```
+
+### Postgres + FastAPI pool (production)
+
+```python
+import asyncpg
+from phzyx.orm import AsyncSession
+from phzyx.schema.types import Dialect
+
+pool = await asyncpg.create_pool(dsn, min_size=5, max_size=20)
+# FastAPI Depends: acquire → AsyncSession(conn, dialect=Dialect.POSTGRES) → release
+# Uvicorn: multiple workers; size pool so sum of max_size ≈ DB max connections budget
+# Read-only handlers: AsyncSession(conn, dialect=…, read_only=True)
 ```
 
 ## Sync (mirror)

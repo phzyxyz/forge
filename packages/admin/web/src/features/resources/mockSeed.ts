@@ -264,7 +264,7 @@ const store: Record<string, Record<string, unknown>[]> = {
   ].map((r) => withIdentity(r, ["org_id", "user_id"])),
   assets: [
     { id: 1, title: "Logo", path: "brand/logo.svg" },
-    { id: 2, title: "Hero", path: "marketing/hero.svg" },
+    { id: 2, title: "Hero", path: "site/hero.svg" },
   ].map((r) => withIdentity(r, ["id"])),
   posts: [
     { id: 1, title: "Welcome", author_id: 1, body: "Hello AdminBoard" },

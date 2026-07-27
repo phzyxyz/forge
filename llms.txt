@@ -1,0 +1,75 @@
+# Phzyx — LLM / agent map (0.1)
+
+> Status: **0.1.0** pre-1.0 · **M8** Forge restructure. APIs may change before 1.0. Prefer this file + docs for current APIs.
+
+## What Phzyx is
+
+Phzyx is Athul Nandaswaroop’s open-source **ecosystem brand** (TanStack-shaped, polyglot).  
+**Forge** (`phzyx-forge`): Pydantic schema, failsafe migrations, ORM, AdminBoard (FastAPI-first; Litestar adapter).  
+**Pulse** (`phzyx-pulse`): next product (background tasks) — not in this tree yet.  
+**Imports:** always `phzyx.*` (product name ≠ import path).
+
+## Install
+
+- Forge line: `uv add 'phzyx-forge[sqlite,auth]'` (or `pip install 'phzyx-forge[sqlite,auth]'`)
+- Ecosystem meta: `uv add phzyx` (grows as products publish; today ≈ Forge)
+- Modular: `uv add phzyx-orm`, `phzyx-admin-fastapi`, `phzyx-cli`, `phzyx-auth`, …
+- CLI: included with forge; `phzyx new myapp` / `phzyx forge init`
+- Dev monorepo: `uv sync --all-packages`
+
+## Scaffold (preferred app shape)
+
+```bash
+phzyx new myapp --preset max
+# app/api async · app/forge dual session + registry · mount_forge(app)
+phzyx db push --models app.forge.registry:ALL_MODELS --yes
+uvicorn app.main:app --reload
+```
+
+Existing project: `phzyx forge init --yes` (island only; does not clobber main.py).
+
+## Canonical docs (public site)
+
+1. https://phzyx.xyz/forge/getting-started — **primary human path**  
+2. `/forge/cli` · `/forge/security` · `/forge/guides/*`  
+3. `/forge/adminboard` · `/forge/apiboard` — AdminBoard + **API Board** (Forge API Client at `/apiboard/`)  
+4. `/forge/compare` — honest positioning  
+5. `/performance` — API throughput results · `/stats` — package traction  
+
+6. Monorepo `CODING_STANDARDS.md` · `ROADMAP.md` · this `llms.txt`  
+
+## API Board (Forge API Client)
+
+- **URL:** `/apiboard/` (FastAPI `AdminBoard(mount_apiboard=True)` default)
+- Interactive try-it for the **current server** OpenAPI (not a Postman clone; not nested Admin chrome)
+- Document format: `phzyx.forge.client` v1 JSON — environments, collections, history, savedResponses
+- Modes: **sandbox** (`sessionStorage`) · **workspace** (`localStorage`, scoped by OpenAPI title@version)
+- Platform-bound env: `baseUrl` (and `sessionUser` when signed in) read-only on “This server”
+- Code: `packages/admin/web/src/features/apidocs/forgeClient/`
+
+## Package map
+
+| Folder | PyPI | Import |
+|--------|------|--------|
+| packages/schema | phzyx-schema | phzyx.schema |
+| packages/engine | phzyx-engine | phzyx.engine |
+| packages/orm | phzyx-orm | phzyx.orm |
+| packages/admin | phzyx-admin | phzyx.admin |
+| packages/admin-fastapi | phzyx-admin-fastapi | phzyx.admin.fastapi |
+| packages/admin-litestar | phzyx-admin-litestar | phzyx.admin.litestar |
+| packages/cli | phzyx-cli | CLI `phzyx` |
+| packages/cache | phzyx-cache | phzyx.cache |
+| packages/auth | phzyx-auth | phzyx.auth |
+| packages/meta-forge | phzyx-forge | Forge install-all |
+| packages/meta | phzyx | ecosystem install-all |
+
+## Hard product rules (public)
+
+- uv workspace; imports `phzyx.*`; PyPI `phzyx-*`
+- No `phzyx/__init__.py` at namespace root (PEP 420)
+- AdminBoard UI: Vite + TS + React + TanStack Query/Table/Router + Zustand (UI only)
+- Themes: Magical White + Stellar Dark primary; System Ambient secondary
+- Files: keys in DB; multi-cloud storage; not blobs in Postgres
+- Product voice: positive; no dunking on peers
+- Phzyx website: sites/web → phzyx.xyz (docs at /forge)
+- Never commit secrets

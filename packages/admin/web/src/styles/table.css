@@ -2,7 +2,8 @@
   border: 1px solid var(--phzyx-border);
   border-radius: var(--phzyx-radius-lg);
   background: var(--phzyx-bg-window);
-  overflow: hidden;
+  /* visible so filter popover is not clipped; scroll lives on .table-scroll */
+  overflow: visible;
   display: flex;
   flex-direction: column;
   min-height: 320px;
@@ -28,9 +29,22 @@
   background: var(--phzyx-bg-input);
 }
 
+.table-toolbar .toolbar-keyset {
+  font-size: 12px;
+  display: flex;
+  gap: 6px;
+  align-items: center;
+  margin-left: auto;
+}
+
+.table-toolbar .toolbar-page-meta {
+  font-size: 12px;
+}
+
 .table-scroll {
   overflow: auto;
   flex: 1;
+  border-radius: 0 0 var(--phzyx-radius-lg) var(--phzyx-radius-lg);
 }
 
 .table-scroll table.data-table {
@@ -289,13 +303,301 @@ html[data-theme="magical-white"] .status-pill-on {
   display: inline-flex;
 }
 
-/* Diamond D2 — filters */
+/* Diamond D2 — chip-first filters + popover */
 .filter-bar {
+  display: contents;
+}
+
+.filter-toolbar-slot {
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+}
+
+.filter-open-btn {
+  gap: 6px;
+  min-width: 0;
+}
+
+.filter-open-btn.is-open,
+.filter-open-btn.has-filters {
+  border-color: color-mix(in oklab, var(--phzyx-cyan-400) 55%, var(--phzyx-border));
+  background: color-mix(in oklab, var(--phzyx-cyan-400) 10%, var(--phzyx-bg-elevated));
+}
+
+.filter-badge {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 18px;
+  height: 18px;
+  padding: 0 5px;
+  border-radius: var(--phzyx-radius-pill);
+  background: color-mix(in oklab, var(--phzyx-cyan-400) 28%, var(--phzyx-bg-window));
+  color: var(--phzyx-text-primary);
+  font-size: 11px;
+  font-weight: 600;
+  line-height: 1;
+}
+
+.filter-caret {
+  font-size: 10px;
+  opacity: 0.7;
+}
+
+.filter-popover {
+  position: absolute;
+  top: calc(100% + 6px);
+  left: 0;
+  z-index: 40;
+  width: min(440px, calc(100vw - 48px));
+  border-radius: var(--phzyx-radius-lg);
+  border: 1px solid var(--phzyx-border-strong);
+  background: var(--phzyx-bg-elevated);
+  box-shadow: var(--phzyx-shadow-lg);
+  /* visible so operator menu can open outside the panel */
+  overflow: visible;
+}
+
+.filter-popover-body {
+  display: grid;
+  grid-template-columns: minmax(120px, 40%) 1fr;
+  min-height: 200px;
+  max-height: min(360px, 55vh);
+  border-radius: var(--phzyx-radius-lg) var(--phzyx-radius-lg) 0 0;
+  /* visible: operator menu must paint outside the editor column */
+  overflow: visible;
+}
+
+.filter-field-list {
   display: flex;
   flex-direction: column;
+  gap: 2px;
+  padding: 8px;
+  overflow: auto;
+  max-height: min(360px, 55vh);
+  border-right: 1px solid var(--phzyx-border);
+  border-radius: var(--phzyx-radius-lg) 0 0 0;
+  background: color-mix(in oklab, var(--phzyx-bg-window) 70%, var(--phzyx-bg-elevated));
+}
+
+.filter-field-item {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 2px;
+  width: 100%;
+  padding: 8px 10px;
+  border: 0;
+  border-radius: var(--phzyx-radius-md);
+  background: transparent;
+  color: var(--phzyx-text);
+  text-align: left;
+  font: inherit;
+  cursor: pointer;
+}
+
+.filter-field-item:hover {
+  background: var(--phzyx-bg-hover);
+}
+
+.filter-field-item.is-selected {
+  background: color-mix(in oklab, var(--phzyx-cyan-400) 14%, var(--phzyx-bg-elevated));
+}
+
+.filter-field-item-label {
+  font-size: 13px;
+  font-weight: 500;
+}
+
+.filter-field-item-hint {
+  font-size: 11px;
+  color: var(--phzyx-text-tertiary);
+  max-width: 100%;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.filter-field-item.is-active .filter-field-item-label {
+  color: var(--phzyx-text-primary);
+}
+
+.filter-editor {
+  position: relative;
+  padding: 12px;
+  overflow: visible;
+  z-index: 1;
+}
+
+.filter-editor-inner {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.filter-editor-title {
+  font-size: 13px;
+  font-weight: 600;
+}
+
+.filter-editor-field {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  font-size: 11px;
+}
+
+.filter-editor-field .input {
+  height: 34px;
+  width: 100%;
+  padding: 0 10px;
+  font-size: 13px;
+  box-sizing: border-box;
+}
+
+/* Native select (bool) — chevron on the right, not overlapping text */
+.filter-select-wrap {
+  position: relative;
+  display: block;
+  width: 100%;
+}
+
+.filter-select {
+  appearance: none;
+  -webkit-appearance: none;
+  width: 100%;
+  padding-right: 32px !important;
+  cursor: pointer;
+}
+
+.filter-select-chevron {
+  position: absolute;
+  right: 10px;
+  top: 50%;
+  transform: translateY(-50%);
+  pointer-events: none;
+  font-size: 11px;
+  opacity: 0.65;
+  line-height: 1;
+}
+
+/* Custom operator menu */
+.filter-op-menu {
+  position: relative;
+  width: 100%;
+}
+
+.filter-op-trigger {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
   gap: 8px;
-  padding: 0 12px 12px;
-  border-bottom: 1px solid var(--phzyx-border);
+  width: 100%;
+  height: 34px;
+  padding: 0 10px 0 12px;
+  border-radius: var(--phzyx-radius-md);
+  border: 1px solid var(--phzyx-border);
+  background: var(--phzyx-bg-input);
+  color: var(--phzyx-text);
+  font: inherit;
+  font-size: 13px;
+  text-align: left;
+  cursor: pointer;
+}
+
+.filter-op-trigger:hover,
+.filter-op-trigger.is-open {
+  border-color: var(--phzyx-cyan-400);
+}
+
+.filter-op-trigger:focus-visible {
+  outline: none;
+  border-color: var(--phzyx-cyan-400);
+  box-shadow: 0 0 0 3px var(--phzyx-accent-soft);
+}
+
+.filter-op-trigger-label {
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.filter-op-trigger-chevron {
+  flex-shrink: 0;
+  font-size: 11px;
+  opacity: 0.65;
+  line-height: 1;
+}
+
+.filter-op-list {
+  position: absolute;
+  top: calc(100% + 4px);
+  left: 0;
+  right: 0;
+  z-index: 50;
+  margin: 0;
+  padding: 4px;
+  list-style: none;
+  max-height: 220px;
+  overflow: auto;
+  border-radius: var(--phzyx-radius-md);
+  border: 1px solid var(--phzyx-border-strong);
+  background: var(--phzyx-bg-elevated);
+  box-shadow: var(--phzyx-shadow-lg);
+}
+
+.filter-op-option {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  width: 100%;
+  padding: 8px 10px;
+  border: 0;
+  border-radius: var(--phzyx-radius-sm, 6px);
+  background: transparent;
+  color: var(--phzyx-text);
+  font: inherit;
+  font-size: 13px;
+  text-align: left;
+  cursor: pointer;
+}
+
+.filter-op-option:hover {
+  background: var(--phzyx-bg-hover);
+}
+
+.filter-op-option.is-selected {
+  background: color-mix(in oklab, var(--phzyx-cyan-400) 16%, var(--phzyx-bg-elevated));
+}
+
+.filter-op-option-main {
+  flex: 1;
+  min-width: 0;
+}
+
+.filter-op-option-sym {
+  flex-shrink: 0;
+  font-size: 12px;
+  font-family: var(--phzyx-mono, ui-monospace, monospace);
+}
+
+.filter-editor-empty,
+.filter-editor-hint {
+  margin: 0;
+  font-size: 12px;
+}
+
+.filter-popover-footer {
+  display: flex;
+  justify-content: flex-end;
+  padding: 8px 10px;
+  border-top: 1px solid var(--phzyx-border);
+  border-radius: 0 0 var(--phzyx-radius-lg) var(--phzyx-radius-lg);
+  background: var(--phzyx-bg-elevated);
 }
 
 .filter-chips {
@@ -303,26 +605,45 @@ html[data-theme="magical-white"] .status-pill-on {
   flex-wrap: wrap;
   align-items: center;
   gap: 6px;
-  min-height: 0;
+  width: 100%;
+  flex-basis: 100%;
+  order: 10;
+  padding: 0 0 4px;
+  margin: 0;
+}
+
+/* When chips sit inside toolbar via display:contents parent */
+.table-toolbar .filter-chips {
+  padding-top: 2px;
 }
 
 .filter-chip {
   display: inline-flex;
-  align-items: center;
-  gap: 6px;
-  height: 26px;
-  padding: 0 10px;
+  align-items: stretch;
+  height: 28px;
   border-radius: var(--phzyx-radius-pill);
   border: 1px solid var(--phzyx-border-strong);
   background: color-mix(in oklab, var(--phzyx-cyan-400) 12%, var(--phzyx-bg-window));
   color: var(--phzyx-text-primary);
-  font: inherit;
-  font-size: 12px;
-  cursor: pointer;
+  overflow: hidden;
 }
 
 .filter-chip:hover {
   border-color: var(--phzyx-cyan-400);
+}
+
+.filter-chip-main {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 0 8px 0 10px;
+  border: 0;
+  background: transparent;
+  color: inherit;
+  font: inherit;
+  font-size: 12px;
+  cursor: pointer;
+  max-width: 220px;
 }
 
 .filter-chip-label {
@@ -331,34 +652,30 @@ html[data-theme="magical-white"] .status-pill-on {
   text-transform: uppercase;
   font-size: 10px;
   letter-spacing: 0.04em;
+  flex-shrink: 0;
 }
 
 .filter-chip-val {
-  max-width: 140px;
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
 }
 
-.filter-inputs {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 10px;
-  align-items: flex-end;
+.filter-chip-remove {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 26px;
+  border: 0;
+  border-left: 1px solid color-mix(in oklab, var(--phzyx-border) 80%, transparent);
+  background: transparent;
+  color: var(--phzyx-text-secondary);
+  font-size: 14px;
+  line-height: 1;
+  cursor: pointer;
 }
 
-.filter-field {
-  display: flex;
-  flex-direction: column;
-  gap: 4px;
-  font-size: 11px;
-  min-width: 120px;
-}
-
-.filter-field .input {
-  height: 30px;
-  min-width: 120px;
-  max-width: 180px;
-  padding: 0 8px;
-  font-size: 12px;
+.filter-chip-remove:hover {
+  background: color-mix(in oklab, var(--phzyx-danger, #e11) 12%, transparent);
+  color: var(--phzyx-text-primary);
 }

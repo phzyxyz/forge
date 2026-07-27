@@ -68,14 +68,40 @@ class AsyncAdminService:
         page_size: int = 50,
         search: str | None = None,
         filters: dict[str, str] | None = None,
+        cursor: str | None = None,
+        pagination: str = "keyset",
         principal: Any | None = None,
     ) -> ListResult:
+        """List records (mirrors sync AdminService pagination rules)."""
+        from phzyx.admin.service import _resolve_list_pagination
+
         res = self.get_resource(name)
         require_authz(self.authz, principal, "list", name)
         page = max(1, page)
         page_size = min(max(1, page_size), 200)
         where = self._where(res, search=search, filters=filters)
         order = order_from_columns(default_order_columns(res.model))
+        mode = _resolve_list_pagination(pagination, page=page, cursor=cursor)
+        total = await self.session.count(res.model, where=where)
+        if mode == "keyset":
+            page_data = await self.session.query_keyset(
+                res.model,
+                where=where,
+                order_by=order,
+                limit=page_size,
+                cursor=cursor,
+            )
+            items = [_serialize(res.model, r) for r in page_data.items]
+            return ListResult(
+                items=items,
+                total=total,
+                page=page,
+                page_size=page_size,
+                next_cursor=page_data.next_cursor,
+                prev_cursor=page_data.prev_cursor,
+                has_more=page_data.has_more,
+                pagination="keyset",
+            )
         rows = await self.session.query(
             res.model,
             where=where,
@@ -83,14 +109,14 @@ class AsyncAdminService:
             limit=page_size,
             offset=(page - 1) * page_size,
         )
-        # Efficient total when sync count exists; async: bounded query length
-        all_rows = await self.session.query(res.model, where=where)
         items = [_serialize(res.model, r) for r in rows]
         return ListResult(
             items=items,
-            total=len(all_rows),
+            total=total,
             page=page,
             page_size=page_size,
+            has_more=(page * page_size) < total,
+            pagination="offset",
         )
 
     async def get(

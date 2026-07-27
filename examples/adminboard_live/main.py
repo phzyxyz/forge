@@ -51,11 +51,11 @@ from starlette.requests import Request
 # Keys written by seed — tests may assert core keys exist under media root.
 SEED_ASSET_KEYS: tuple[str, ...] = (
     "brand/logo.svg",
-    "marketing/hero.svg",
+    "site/hero.svg",
     "brand/wordmark.svg",
     "docs/readme.txt",
     "docs/changelog.md",
-    "marketing/banner.svg",
+    "site/banner.svg",
     "avatars/ops.svg",
     "avatars/dev.svg",
     "uploads/sample-notes.txt",
@@ -285,8 +285,8 @@ def write_seed_media(media_root: Path, *, overwrite: bool = False) -> list[Path]
     files: dict[str, str] = {
         "brand/logo.svg": _svg(240, 240, "#22d3ee", "P"),
         "brand/wordmark.svg": _svg(480, 120, "#67e8f9", "Phzyx"),
-        "marketing/hero.svg": _svg(640, 320, "#8b5cf6", "Phzyx"),
-        "marketing/banner.svg": _svg(800, 200, "#fb923c", "AdminBoard"),
+        "site/hero.svg": _svg(640, 320, "#8b5cf6", "Phzyx"),
+        "site/banner.svg": _svg(800, 200, "#fb923c", "AdminBoard"),
         "avatars/ops.svg": _svg(128, 128, "#4ade80", "Ops"),
         "avatars/dev.svg": _svg(128, 128, "#60a5fa", "Dev"),
         "docs/readme.txt": (
@@ -494,6 +494,8 @@ def create_app(
         storage_root=media_root,
         authz=PhzyxAuthz(require_staff=True),
         database_url=f"sqlite:///{db_path}",
+        mount_apiboard=True,  # GET /apiboard/ — standalone API Board (same SPA)
+        apidocs_redirect=True,  # GET /apidocs → /apiboard/
     )
 
     @application.middleware("http")

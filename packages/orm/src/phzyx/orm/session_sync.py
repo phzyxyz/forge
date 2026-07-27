@@ -11,7 +11,7 @@ from types import TracebackType
 from typing import Any, TypeVar
 
 from phzyx.orm.engine_sync import Engine
-from phzyx.orm.errors import ConflictError
+from phzyx.orm.errors import ConflictError, OrmError
 from phzyx.orm.expr import Filter, OrderBy, eq
 from phzyx.orm.hydrate import model_to_row, row_to_model
 from phzyx.orm.insert_prep import prepare_insert_values, prepare_update_values
@@ -21,6 +21,7 @@ from phzyx.orm.keyset import (
     default_order_columns,
     order_from_columns,
 )
+from phzyx.orm.pk_util import primary_key_map, reject_optimistic_for_by_pk
 from phzyx.orm.sql import (
     build_count,
     build_delete,
@@ -40,12 +41,17 @@ class Session:
     """Sync unit-of-work for CRUD + queries (mirrors AsyncSession).
 
     Use for scripts/CLI and AdminBoard session_factory; prefer AsyncSession
-    for app request handlers.
+    for app request handlers. Pass ``read_only=True`` to reject writes.
     """
 
-    def __init__(self, conn: Any, *, dialect: Dialect) -> None:
+    def __init__(self, conn: Any, *, dialect: Dialect, read_only: bool = False) -> None:
         self._conn = conn
         self.dialect = dialect
+        self.read_only = read_only
+
+    def _ensure_writable(self) -> None:
+        if self.read_only:
+            raise OrmError("Session is read_only; writes are disabled")
 
     def __enter__(self) -> Session:
         return self
@@ -66,6 +72,8 @@ class Session:
         self._conn.close()
 
     def commit(self) -> None:
+        if self.read_only:
+            return
         self._conn.commit()
 
     def rollback(self) -> None:
@@ -77,6 +85,7 @@ class Session:
         return self
 
     def add(self, instance: Model) -> Model:
+        self._ensure_writable()
         data, omitted_pk = prepare_insert_values(instance)
         use_returning = self.dialect is Dialect.POSTGRES
         frag = build_insert(
@@ -127,6 +136,7 @@ class Session:
         return self._fetch_one(model, frag.sql, frag.params)
 
     def delete(self, instance: Model) -> None:
+        self._ensure_writable()
         info = get_table_info(type(instance))
         data = model_to_row(instance)
         where = [eq(col, data[col]) for col in info.primary_key]
@@ -134,6 +144,7 @@ class Session:
         self._execute(frag.sql, frag.params)
 
     def update(self, instance: Model, **values: Any) -> Model:
+        self._ensure_writable()
         info = get_table_info(type(instance))
         data = model_to_row(instance)
         # Reject updates that don't touch PK identity (missing PK on instance)
@@ -160,13 +171,64 @@ class Session:
                 old_v = 0
             where.append(eq(col_name, old_v))
             values[col_name] = int(old_v) + 1
-        frag = build_update(type(instance), values, where, dialect=self.dialect)
+        use_returning = self.dialect is Dialect.POSTGRES
+        frag = build_update(
+            type(instance),
+            values,
+            where,
+            dialect=self.dialect,
+            returning=use_returning,
+        )
+        if use_returning:
+            row = self.execute_returning(frag.sql, frag.params)
+            if row is None:
+                if has_opt:
+                    raise ConflictError("optimistic lock failed: row was updated elsewhere")
+                return type(instance).model_validate({**data, **values})
+            return row_to_model(type(instance), row)
         n = self._execute_rowcount(frag.sql, frag.params)
         if has_opt and n == 0:
             raise ConflictError("optimistic lock failed: row was updated elsewhere")
         if has_opt and n < 0:
             self._verify_optimistic(type(instance), data, info)
         return type(instance).model_validate({**data, **values})
+
+    def update_by_pk(self, model: type[M], key: Any, **values: Any) -> M | None:
+        """UPDATE by primary key without a prior SELECT.
+
+        Returns the updated row, or ``None`` if no row matched.
+        Models with optimistic columns must use :meth:`update` instead.
+        """
+        self._ensure_writable()
+        reject_optimistic_for_by_pk(model)
+        pk_map = primary_key_map(model, key)
+        if not values:
+            return self.get(model, key)
+        shell = model.model_construct(**pk_map)
+        try:
+            prepared = prepare_update_values(shell, values)
+        except ValueError:
+            if not values:
+                return self.get(model, key)
+            raise
+        where = [eq(col, pk_map[col]) for col in pk_map]
+        use_returning = self.dialect is Dialect.POSTGRES
+        frag = build_update(
+            model,
+            prepared,
+            where,
+            dialect=self.dialect,
+            returning=use_returning,
+        )
+        if use_returning:
+            row = self.execute_returning(frag.sql, frag.params)
+            if row is None:
+                return None
+            return row_to_model(model, row)
+        n = self._execute_rowcount(frag.sql, frag.params)
+        if n == 0:
+            return None
+        return self.get(model, key)
 
     def count(
         self,

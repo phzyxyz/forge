@@ -124,7 +124,8 @@ export type AppRoute =
   | { page: "settings" }
   | { page: "login" }
   | { page: "schema" }
-  | { page: "audit" };
+  | { page: "audit" }
+  | { page: "apidocs" };
 
 /** localStorage saved table view (Diamond D2). */
 export type SavedView = {

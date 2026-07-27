@@ -103,9 +103,18 @@ def prepare_update_values(
     instance: Model,
     values: dict[str, Any],
 ) -> dict[str, Any]:
-    """Merge update values with auto_now; strip generated columns."""
+    """Merge update values with auto_now; strip unsafe / non-mutable columns.
+
+    Always drops:
+    - **primary key** columns (identity is only in WHERE, never SET — prevents
+      accidental or malicious PK rewrites via ``update`` / ``update_by_pk``)
+    - **generated** columns (DB-owned)
+
+    Fills ``auto_now`` timestamps. Raises if nothing remains to SET.
+    """
     info = get_table_info(type(instance))
-    out = {k: _sql_friendly(v) for k, v in values.items()}
+    pk = set(info.primary_key)
+    out = {k: _sql_friendly(v) for k, v in values.items() if k not in pk}
     for name, meta in info.columns.items():
         if meta.generated:
             out.pop(name, None)
@@ -116,5 +125,7 @@ def prepare_update_values(
                 now = utcnow()
             out[name] = now
     if not out:
-        raise ValueError("update requires at least one column after stripping generated")
+        raise ValueError(
+            "update requires at least one column after stripping primary key / generated"
+        )
     return out

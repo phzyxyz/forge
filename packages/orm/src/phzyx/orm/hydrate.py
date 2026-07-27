@@ -11,7 +11,11 @@ M = TypeVar("M", bound=Model)
 
 
 def row_to_model(model: type[M], row: Mapping[str, Any] | Sequence[Any]) -> M:
-    """Hydrate a model from a mapping or ordered row tuple."""
+    """Hydrate a model from a mapping or ordered row tuple.
+
+    Uses ``model_validate`` so driver types (e.g. SQLite ISO datetime strings)
+    are coerced correctly.
+    """
     if isinstance(row, Mapping):
         data = {k: row[k] for k in model.model_fields if k in row}
         return model.model_validate(data)

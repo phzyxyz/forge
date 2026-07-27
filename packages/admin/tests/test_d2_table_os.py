@@ -81,7 +81,18 @@ def test_list_filters_and_bulk_deactivate(tmp_path) -> None:
 
 @pytest.mark.integration
 @pytest.mark.sqlite
+def test_default_list_is_keyset_with_offset_compat(tmp_path) -> None:
+    """Default list mode is keyset; page>1 without cursor falls back to offset."""
+    from phzyx.admin.service import _resolve_list_pagination
+
+    assert _resolve_list_pagination("keyset", page=1, cursor=None) == "keyset"
+    assert _resolve_list_pagination("keyset", page=2, cursor=None) == "offset"
+    assert _resolve_list_pagination("offset", page=1, cursor=None) == "offset"
+    assert _resolve_list_pagination("keyset", page=2, cursor="abc") == "keyset"
+
+
 def test_keyset_pagination_mode(tmp_path) -> None:
+
     db = tmp_path / "d2k.db"
     conn, adapter = connect(f"sqlite:///{db}")
     try:

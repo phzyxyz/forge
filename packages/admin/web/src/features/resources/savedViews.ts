@@ -15,7 +15,8 @@ export function loadSavedView(resource: string): SavedView | null {
           : {},
       columnOrder: Array.isArray(parsed.columnOrder) ? parsed.columnOrder : [],
       pageSize: typeof parsed.pageSize === "number" ? parsed.pageSize : 50,
-      pagination: parsed.pagination === "keyset" ? "keyset" : "offset",
+      // Default keyset for large tables; preserve explicit offset choices
+      pagination: parsed.pagination === "offset" ? "offset" : "keyset",
     };
   } catch {
     return null;

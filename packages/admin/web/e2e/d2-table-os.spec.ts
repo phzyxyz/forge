@@ -8,9 +8,12 @@ test.describe("AdminBoard diamond D2", () => {
   test("filter active and bulk deactivate", async ({ page }) => {
     await loginAsAdmin(page);
     await openResource(page, "users");
-    await expect(page.getByTestId("filter-bar")).toBeVisible();
+    await expect(page.getByTestId("filter-bar")).toBeAttached();
+    await page.getByTestId("filter-open").click();
+    await expect(page.getByTestId("filter-popover")).toBeVisible();
 
-    // Filter to active only
+    // Filter to active only (chip-first popover)
+    await page.getByTestId("filter-field-active").click();
     await page.getByTestId("filter-input-active").selectOption("true");
     await expect(page.getByTestId("filter-chip-active")).toBeVisible({ timeout: 15_000 });
     await expect(page.getByTestId("table-row").first()).toBeVisible({ timeout: 15_000 });

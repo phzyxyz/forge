@@ -1,5 +1,6 @@
 import { useEffect, useState } from "react";
 import { QueryClient, QueryClientProvider, useQuery } from "@tanstack/react-query";
+import { ApiBoardShell, isApiBoardPath } from "../features/apidocs/ApiBoardShell";
 import { LoginPage } from "../features/auth/LoginPage";
 import { SESSION_EXPIRED, useSessionStore } from "../features/auth/sessionStore";
 import { probeMode, fetchResources } from "../features/resources/api";
@@ -34,6 +35,7 @@ function Boot() {
   const [demo, setDemo] = useState(false);
   const [needsAuth, setNeedsAuth] = useState(false);
   const [bootKey, setBootKey] = useState(0);
+  const apiBoard = isApiBoardPath();
 
   useEffect(() => {
     hydrate();
@@ -45,7 +47,7 @@ function Boot() {
       // logout already done in emitSessionExpired (once); clear caches + toast once
       qc.clear();
       toast("Session expired — sign in again", "error");
-      setRoute({ page: "overview" });
+      if (!isApiBoardPath()) setRoute({ page: "overview" });
     };
     window.addEventListener(SESSION_EXPIRED, onExpired);
     return () => window.removeEventListener(SESSION_EXPIRED, onExpired);
@@ -76,10 +78,11 @@ function Boot() {
   const canLoadResources = ready && (demo || Boolean(authorization));
   const showLogin = ready && !demo && needsAuth && !authorization;
 
+  // AdminBoard needs resource list; API Board only needs auth + OpenAPI (no resource fetch).
   const resourcesQ = useQuery({
     queryKey: ["resources", demo, Boolean(authorization)],
     queryFn: () => fetchResources(demo),
-    enabled: canLoadResources,
+    enabled: canLoadResources && !apiBoard,
   });
 
   if (!ready) {
@@ -106,6 +109,14 @@ function Boot() {
           ))}
         </div>
       </>
+    );
+  }
+
+  if (apiBoard) {
+    return (
+      <ErrorBoundary onReset={() => setBootKey((k) => k + 1)}>
+        <ApiBoardShell />
+      </ErrorBoundary>
     );
   }
 

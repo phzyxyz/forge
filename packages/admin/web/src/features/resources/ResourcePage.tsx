@@ -42,7 +42,7 @@ export function ResourcePage({
   const [search, setSearch] = useState(globalSearch);
   const [filters, setFilters] = useState<Record<string, string>>(saved?.filters ?? {});
   const [pagination, setPagination] = useState<"offset" | "keyset">(
-    saved?.pagination ?? "offset",
+    saved?.pagination ?? "keyset",
   );
   const [cursor, setCursor] = useState<string | null>(null);
   const [pendingDelete, setPendingDelete] = useState<string[] | null>(null);
@@ -65,7 +65,7 @@ export function ResourcePage({
     setCursor(null);
     setFilters(v?.filters ?? {});
     setPageSize(v?.pageSize ?? 50);
-    setPagination(v?.pagination ?? "offset");
+    setPagination(v?.pagination ?? "keyset");
     setColumnVisibility(v?.columnVisibility ?? {});
     setColumnOrder(v?.columnOrder ?? []);
     setSelectedIds([]);
@@ -356,7 +356,16 @@ export function ResourcePage({
             }}
             aria-label="Search records"
           />
-          <label className="muted" style={{ fontSize: 12, display: "flex", gap: 6, alignItems: "center" }}>
+          <FilterBar
+            schema={schema}
+            filters={filters}
+            onChange={(next) => {
+              setFilters(next);
+              setPage(1);
+              setCursor(null);
+            }}
+          />
+          <label className="muted toolbar-keyset">
             <input
               type="checkbox"
               data-testid="keyset-toggle"
@@ -369,7 +378,7 @@ export function ResourcePage({
             />
             Keyset
           </label>
-          <span className="muted" style={{ fontSize: 12 }} data-testid="page-indicator">
+          <span className="muted toolbar-page-meta" data-testid="page-indicator">
             {pagination === "keyset"
               ? hasMoreKeyset
                 ? "Keyset · more available"
@@ -377,16 +386,6 @@ export function ResourcePage({
               : `Page ${page} of ${totalPages}`}
           </span>
         </div>
-
-        <FilterBar
-          schema={schema}
-          filters={filters}
-          onChange={(next) => {
-            setFilters(next);
-            setPage(1);
-            setCursor(null);
-          }}
-        />
 
         <ResourceTable
           schema={schema}

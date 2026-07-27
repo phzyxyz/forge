@@ -63,7 +63,14 @@ export function LoginPage() {
     <div className="login-page" data-testid="login-page">
       <form className="login-card" onSubmit={onSubmit}>
         <div className="brand" style={{ padding: 0 }}>
-          <div className="brand-mark" />
+          <img
+            className="brand-mark"
+            src={`${import.meta.env.BASE_URL}phzyx-mark.svg`}
+            alt="Phzyx"
+            width={32}
+            height={32}
+            draggable={false}
+          />
           <div className="brand-text">
             <strong>{branding.header_title}</strong>
             <span>{branding.header_subtitle}</span>
