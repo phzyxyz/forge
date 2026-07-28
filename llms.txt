@@ -11,7 +11,7 @@ Phzyx is Athul Nandaswaroop’s open-source **ecosystem brand** (TanStack-shaped
 
 ## Install
 
-- **Product:** `uv add 'phzyx-forge[sqlite,auth]==0.1.0'` (fat wheel: schema + engine + ORM + AdminBoard + CLI)
+- **Product:** `uv add 'phzyx-forge[sqlite,auth]'` (fat wheel: schema + engine + ORM + AdminBoard + CLI)
 - **Batteries:** `uv add phzyx-auth` · `uv add phzyx-cache` (or forge extras `[auth]` / `[cache]`)
 - **Public PyPI names only:** `phzyx-forge`, `phzyx-auth`, `phzyx-cache` (no separate `phzyx-schema` / `phzyx-orm` on PyPI)
 - CLI: included with forge; `phzyx new myapp` / `phzyx forge init`

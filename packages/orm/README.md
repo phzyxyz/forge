@@ -1,6 +1,6 @@
 # phzyx-orm
 
-**Not a separate PyPI project** — ships inside **`phzyx-forge`**. Use `uv add 'phzyx-forge[sqlite]==0.1.0'`.
+**Not a separate PyPI project** — ships inside **`phzyx-forge`**. Use `uv add 'phzyx-forge[sqlite]'`.
 
 
 **Async-first** ORM sessions over Phzyx models. Prefer `AsyncSession` for app routes.
@@ -22,11 +22,8 @@ created_at: datetime | None = Field(default=None, auto_now_add=True)
 ## Install
 
 ```bash
-uv add phzyx-orm
-# or: pip install phzyx-orm
-uv add 'phzyx-orm[sqlite]'     # aiosqlite
-uv add 'phzyx-orm[postgres]'   # asyncpg + psycopg
-uv add 'phzyx-orm[mysql]'      # pymysql
+uv add 'phzyx-forge[sqlite]'
+# import: from phzyx.orm …
 ```
 
 ## Async (preferred)

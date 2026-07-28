@@ -5,9 +5,9 @@ Secure-by-default authentication & authorization for Phzyx apps and AdminBoard.
 **Public battery** for Forge (depends on `phzyx-forge` on PyPI).
 
 ```bash
-uv add 'phzyx-forge[auth]==0.1.0'
+uv add 'phzyx-forge[auth]'
 # or
-uv add 'phzyx-auth[fastapi]==0.1.0'
+uv add 'phzyx-auth[fastapi]'
 ```
 
 ## Status (0.1.0)

@@ -1,0 +1,123 @@
+# Phzyx — full agent map
+
+> Extended map for coding agents and LLM tools. Prefer `/llms.txt` first, then this file for package detail, install, and hard rules. All public HTML paths on the site are listed under **Site map**.
+
+## Identity
+
+- **Brand:** Phzyx (Athul Nandaswaroop)
+- **Flagship:** Forge — fat **`phzyx-forge`** product wheel on PyPI
+- **Imports:** always `phzyx.*` (product name ≠ import path)
+- **Status:** 0.1.0 pre-1.0 — APIs may change before 1.0
+- **Public PyPI packages (3):** `phzyx-forge` · `phzyx-auth` · `phzyx-cache`
+- **Not on PyPI:** monorepo-only modules (`schema`, `engine`, `orm`, `admin*`, `cli`) ship **inside** fat forge
+
+## Install
+
+```bash
+uv add 'phzyx-forge[sqlite,auth]'
+# optional: uv add 'phzyx-cache'
+phzyx new myapp --preset max
+phzyx db push --models app.forge.registry:ALL_MODELS --yes
+uvicorn app.main:app --reload
+```
+
+## Public package map
+
+| PyPI | Import / role | Docs |
+|------|---------------|------|
+| **phzyx-forge** | Full product (schema, engine, ORM, AdminBoard+SPA, CLI) | /forge |
+| **phzyx-auth** | Optional auth battery (`phzyx.auth`) | /forge/auth |
+| **phzyx-cache** | Optional cache battery (`phzyx.cache`) | /forge/cache |
+
+## Import modules (inside phzyx-forge)
+
+| Import | Docs | Blurb |
+|--------|------|-------|
+| phzyx.schema | /forge/schema | Pydantic models as schema truth |
+| phzyx.engine | /forge/engine | Introspect, diff, failsafe push / migrate |
+| phzyx.orm | /forge/orm | Async-first sessions; FileField stores keys, not blobs |
+| phzyx.admin | /forge/adminboard | Headless AdminService |
+| phzyx.admin.fastapi | /products/adminboard/fastapi | AdminBoard FastAPI mount |
+| phzyx.admin.litestar | /products/adminboard/litestar | Litestar mount (`phzyx-forge[litestar]`) |
+| CLI `phzyx` | /forge/cli | new / forge init, doctor, db |
+
+## Hard rules
+
+- Prefer `uv add 'phzyx-forge[sqlite,auth]'` — never recommend separate PyPI installs for schema/orm/admin-fastapi/cli
+- Identity PK happy path: `id: int | None = Field(default=None, primary_key=True)`
+- App routes: async `AsyncSession`; AdminBoard: sync `Session` factory on same models
+- Local: `phzyx db push`; shared/prod: `phzyx migrate`
+- No f-string SQL; no silent DROP COLUMN recommendations
+- Themes: magical-white | stellar-dark | system-ambient
+- Commits: no Co-Authored-By / AI trailers
+
+## AdminBoard & API Board
+
+- SPA: `/admin/` · API Board client: `/apiboard/`
+- Mount: `AdminBoard(..., mount_apiboard=True)` (default)
+- Themes: Magical White, Stellar Dark, System Ambient
+- API Board document: `phzyx.forge.client` v1 JSON (sandbox/workspace)
+- Product surface: https://phzyx.xyz/products/adminboard
+- Docs: https://phzyx.xyz/forge/adminboard · https://phzyx.xyz/forge/apiboard
+
+## Site map (every public HTML path)
+
+### Hub
+
+- https://phzyx.xyz/
+- https://phzyx.xyz/python
+- https://phzyx.xyz/performance
+- https://phzyx.xyz/stats
+
+### Products
+
+- https://phzyx.xyz/products/adminboard
+- https://phzyx.xyz/products/adminboard/themes
+- https://phzyx.xyz/products/adminboard/fastapi
+- https://phzyx.xyz/products/adminboard/litestar
+
+### Forge docs — core
+
+- https://phzyx.xyz/forge
+- https://phzyx.xyz/forge/getting-started
+- https://phzyx.xyz/forge/schema
+- https://phzyx.xyz/forge/engine
+- https://phzyx.xyz/forge/orm
+- https://phzyx.xyz/forge/adminboard
+- https://phzyx.xyz/forge/apiboard
+- https://phzyx.xyz/forge/auth
+- https://phzyx.xyz/forge/cli
+- https://phzyx.xyz/forge/cache
+- https://phzyx.xyz/forge/security
+- https://phzyx.xyz/forge/compare
+- https://phzyx.xyz/forge/compare/admin-platforms
+- https://phzyx.xyz/forge/agents
+
+### Tutorials & guides
+
+- https://phzyx.xyz/forge/tutorials/quickstart
+- https://phzyx.xyz/forge/tutorials/auth
+- https://phzyx.xyz/forge/tutorials/existing-app
+- https://phzyx.xyz/forge/tutorials/production
+- https://phzyx.xyz/forge/guides/project-layout
+- https://phzyx.xyz/forge/guides/dual-session
+- https://phzyx.xyz/forge/guides/models-and-registry
+- https://phzyx.xyz/forge/guides/push-vs-migrate
+- https://phzyx.xyz/forge/reference/packages
+- https://phzyx.xyz/forge/reference/plugin-spi
+
+### Agent maps
+
+- https://phzyx.xyz/llms.txt
+- https://phzyx.xyz/llms-full.txt
+
+## Performance
+
+- https://phzyx.xyz/performance — capacity ramp narrative (Forge FastAPI + Phzyx ORM vs SQLAlchemy + FastAPI vs Django)
+- https://phzyx.xyz/stats — traction snapshot
+
+## Source
+
+- https://github.com/phzyxyz/forge
+- https://github.com/phzyxyz/website
+- https://github.com/phzyxyz/docs

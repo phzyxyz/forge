@@ -1,32 +1,14 @@
 # phzyx (ecosystem meta)
 
-**Not published for 0.1.0.** Use **`phzyx-forge`** as the product install.
+**Not published for 0.1.0.**
 
-# phzyx
-
-**Ecosystem install-all** meta package for the Phzyx brand.
+Use the product:
 
 ```bash
-uv add phzyx
-# or
-pip install phzyx
+uv add 'phzyx-forge[sqlite,auth]'
 ```
 
-Pulls every **published** Phzyx product pin in this release line.  
-Today that is the **Forge** stack (schema, engine, orm, admin, admin-fastapi, cli). When **Pulse** and other products publish, they are added here.
+Optional batteries: `phzyx-auth`, `phzyx-cache`.
 
-## Prefer a single product line?
-
-```bash
-uv add phzyx-forge   # Forge only
-```
-
-## Modular
-
-```bash
-uv add phzyx-orm
-uv add phzyx-admin-fastapi
-uv add phzyx-auth    # optional battery
-```
-
-Imports: `phzyx.schema`, `phzyx.orm`, `phzyx.admin.fastapi`, …
+This workspace package remains for a future multi-product ecosystem meta install.
+It must not be uploaded to PyPI in the 0.1 first-impression release.

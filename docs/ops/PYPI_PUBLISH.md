@@ -16,10 +16,10 @@
 **Not published** (monorepo-only modules; shipped *inside* fat forge):  
 `phzyx-schema`, `phzyx-engine`, `phzyx-orm`, `phzyx-admin`, `phzyx-admin-fastapi`, `phzyx-admin-litestar`, `phzyx-cli`, meta `phzyx`, `phzyx-plugin-hello`.
 
-Users install:
+Users install (no forced pin — lockfile tracks the resolved version):
 
 ```bash
-uv add 'phzyx-forge[sqlite,auth]==0.1.0'
+uv add 'phzyx-forge[sqlite,auth]'
 ```
 
 ---
@@ -118,12 +118,13 @@ phzyx --help
 ## 6. User install (uv)
 
 ```bash
-uv add 'phzyx-forge[sqlite,auth]==0.1.0'
-uv add 'phzyx-cache==0.1.0'          # optional
-uvx --from 'phzyx-forge[sqlite]==0.1.0' phzyx doctor
+uv add 'phzyx-forge[sqlite,auth]'
+uv add phzyx-cache          # optional
+uvx --from 'phzyx-forge[sqlite]' phzyx doctor
 ```
 
-Pin **0.x** — APIs may change before 1.0.
+Apps should rely on **`uv.lock`** (or equivalent) for reproducible installs.  
+Exact `==0.1.0` is only for release smoke (step 5), not day-to-day docs.
 
 ---
 

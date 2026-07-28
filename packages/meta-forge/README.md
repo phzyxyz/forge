@@ -5,7 +5,7 @@
 ## Install (PyPI)
 
 ```bash
-uv add 'phzyx-forge[sqlite,auth]==0.1.0'
+uv add 'phzyx-forge[sqlite,auth]'
 ```
 
 The **PyPI** distribution is a **fat wheel** (all core modules + AdminBoard SPA).  
