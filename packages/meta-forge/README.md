@@ -11,11 +11,13 @@ uv add phzyx-forge
 The **PyPI** distribution is a **fat wheel** (all core modules + AdminBoard SPA).  
 Built by `scripts/build_pypi_release.py` — not this empty meta package.
 
-Optional batteries:
+Optional:
 
 ```bash
-uv add 'phzyx-forge[auth]'    # or: uv add phzyx-auth
-uv add 'phzyx-forge[cache]'   # or: uv add phzyx-cache
+uv add 'phzyx-forge[auth]'     # or: uv add phzyx-auth
+uv add 'phzyx-forge[cache]'    # or: uv add phzyx-cache
+uv add 'phzyx-forge[postgres]' # etc.
+uv add 'phzyx-forge[full]'     # all drivers + auth + cache + litestar
 ```
 
 ## Monorepo (developers)

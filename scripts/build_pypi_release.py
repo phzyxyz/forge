@@ -100,9 +100,15 @@ mssql = ["pymssql>=2.3"]
 auth = ["phzyx-auth[fastapi]>={VERSION},<0.2"]
 cache = ["phzyx-cache>={VERSION},<0.2"]
 litestar = ["litestar>=2.12"]
+# Literally full: every driver + batteries + Litestar (SQLite already in core).
 full = [
+  "asyncpg",
+  "psycopg[binary]>=3",
+  "pymysql",
+  "pymssql>=2.3",
   "phzyx-auth[fastapi]>={VERSION},<0.2",
   "phzyx-cache>={VERSION},<0.2",
+  "litestar>=2.12",
 ]
 
 [project.scripts]

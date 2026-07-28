@@ -26,7 +26,16 @@ mssql = ["pymssql>=2.3"]
 auth = ["phzyx-auth[fastapi]"]
 cache = ["phzyx-cache"]
 litestar = ["phzyx-admin-litestar", "litestar>=2.12"]
-full = ["phzyx-auth[fastapi]", "phzyx-cache"]
+# Literally full: every driver + batteries + Litestar (SQLite already in core).
+full = [
+  "asyncpg",
+  "psycopg[binary]>=3",
+  "pymysql",
+  "pymssql>=2.3",
+  "phzyx-auth[fastapi]",
+  "phzyx-cache",
+  "litestar>=2.12",
+]
 
 [project.scripts]
 # Entry point lives on phzyx-cli in the monorepo; fat PyPI wheel defines phzyx too.
