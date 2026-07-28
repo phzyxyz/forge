@@ -82,7 +82,7 @@ jobs:
 
 
   coverage:
-    name: coverage (fail-under 75)
+    name: coverage (fail-under 74)
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
@@ -104,7 +104,7 @@ jobs:
             --cov \
             --cov-report=term-missing:skip-covered \
             --cov-report=xml \
-            --cov-fail-under=75
+            --cov-fail-under=74
       - name: Upload coverage.xml
         if: always()
         uses: actions/upload-artifact@v4

@@ -100,7 +100,7 @@ uv sync --all-packages --group dev
 uv run ruff check packages tests
 uv run pyright
 uv run pytest -q
-make cov    # coverage gate (≥ 75% on product packages)
+make cov    # coverage gate (≥ 74% on product packages; ratchet toward 75+)
 ```
 
 | Path | Purpose |

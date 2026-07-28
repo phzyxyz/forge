@@ -44,7 +44,8 @@ def test_d6_library_lists_seed_media(client, auth) -> None:
     body = r.json()
     keys = {i["key"] for i in body["items"]}
     assert "brand/logo.svg" in keys
-    assert "marketing/hero.svg" in keys
+    # Seed writes site/hero.svg (see examples/adminboard_live/main.py write_seed_media)
+    assert "site/hero.svg" in keys
     logo = next(i for i in body["items"] if i["key"] == "brand/logo.svg")
     assert logo["mode"] == "image"
 

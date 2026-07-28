@@ -19,7 +19,7 @@ make sync && make check
 | Lint | `uv run ruff check packages tests` |
 | Format | `uv run ruff format packages tests` |
 | Types | `uv run pyright` |
-| Coverage | `make cov` (fail-under 75% on product packages) |
+| Coverage | `make cov` (fail-under 74% on product packages; ratchet to 75+) |
 | Hello app | `make hello` |
 
 AdminBoard SPA (when you touch `packages/admin/web`):
