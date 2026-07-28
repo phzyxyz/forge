@@ -1,7 +1,8 @@
 # Publish pure-Python packages to PyPI on version tags (Trusted Publishing).
 # Tag format: v0.1.0
 # Configure each PyPI project with GitHub OIDC Trusted Publisher:
-#   owner/repo = phzyx/phzyx, workflow = publish.yml, environment = pypi
+#   owner/repo = phzyxyz/forge, workflow = publish.yml, environment = pypi
+# Do not publish: phzyx-workspace, phzyx-plugin-hello
 name: Publish
 
 on:
@@ -47,8 +48,10 @@ jobs:
             phzyx-admin \
             phzyx-admin-fastapi \
             phzyx-admin-litestar \
+            phzyx-auth \
             phzyx-cli \
             phzyx-cache \
+            phzyx-forge \
             phzyx
           do
             echo "==> $name"
@@ -66,12 +69,13 @@ jobs:
     name: publish to PyPI
     needs: build
     runs-on: ubuntu-latest
+    # Tags only — workflow_dispatch is build/artifact dry-run (no upload).
     if: >-
       github.event_name == 'push' &&
       startsWith(github.ref, 'refs/tags/v')
     environment:
       name: pypi
-      url: https://pypi.org/p/phzyx
+      url: https://pypi.org/p/phzyx-forge
     permissions:
       id-token: write
       contents: read

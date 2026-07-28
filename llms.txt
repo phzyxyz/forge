@@ -11,11 +11,12 @@ Phzyx is Athul Nandaswaroop’s open-source **ecosystem brand** (TanStack-shaped
 
 ## Install
 
-- Forge line: `uv add 'phzyx-forge[sqlite,auth]'` (or `pip install 'phzyx-forge[sqlite,auth]'`)
+- **From PyPI (when published):** `uv add 'phzyx-forge[sqlite,auth]'` · pin `==0.1.0` in apps
+- **From git (this repo):** `git clone …/forge && uv sync --all-packages --group dev`
 - Ecosystem meta: `uv add phzyx` (grows as products publish; today ≈ Forge)
 - Modular: `uv add phzyx-orm`, `phzyx-admin-fastapi`, `phzyx-cli`, `phzyx-auth`, …
 - CLI: included with forge; `phzyx new myapp` / `phzyx forge init`
-- Dev monorepo: `uv sync --all-packages`
+- Dev workspace: `uv sync --all-packages --group dev`
 
 ## Scaffold (preferred app shape)
 

@@ -1,17 +1,17 @@
 # Phzyx hello example
 
-Minimal **FastAPI** app that imports workspace packages to prove monorepo wiring.
+Minimal **FastAPI** app that imports workspace packages to prove Forge wiring.
 
 For a **full scaffolded app** (async CRUD + AdminBoard + forge island), use:
 
 ```bash
-phzyx new myapp --preset max
+uv run phzyx new myapp --preset max
 ```
 
 Or follow [Getting started](https://phzyx.xyz/forge/getting-started).  
 Rich operator demo: `examples/adminboard_live/`.
 
-## Run (from monorepo root)
+## Run (from forge repo root)
 
 ```bash
 # Prefer the task runner (uses root uv env where packages are already installed)
