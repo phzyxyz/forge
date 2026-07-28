@@ -1,5 +1,8 @@
 # phzyx-admin
 
+**Not a separate PyPI project** — ships inside **`phzyx-forge`**. Use `uv add 'phzyx-forge[sqlite]==0.1.0'`.
+
+
 AdminBoard core: resources, AdminService, export/copy, storage, file opener.
 
 SPA sources: `web/` (Vite + React + TanStack Query + Zustand). Build:

@@ -1,5 +1,8 @@
 # phzyx-admin-litestar
 
+**Not a separate PyPI project** — ships inside **`phzyx-forge`**. Use `uv add 'phzyx-forge[sqlite]==0.1.0'`.
+
+
 Mount AdminBoard on **Litestar** (M6).
 
 ```python

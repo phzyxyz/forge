@@ -11,12 +11,11 @@ Phzyx is Athul Nandaswaroop’s open-source **ecosystem brand** (TanStack-shaped
 
 ## Install
 
-- **From PyPI (when published):** `uv add 'phzyx-forge[sqlite,auth]'` · pin `==0.1.0` in apps
-- **From git (this repo):** `git clone …/forge && uv sync --all-packages --group dev`
-- Ecosystem meta: `uv add phzyx` (grows as products publish; today ≈ Forge)
-- Modular: `uv add phzyx-orm`, `phzyx-admin-fastapi`, `phzyx-cli`, `phzyx-auth`, …
+- **Product:** `uv add 'phzyx-forge[sqlite,auth]==0.1.0'` (fat wheel: schema + engine + ORM + AdminBoard + CLI)
+- **Batteries:** `uv add phzyx-auth` · `uv add phzyx-cache` (or forge extras `[auth]` / `[cache]`)
+- **Public PyPI names only:** `phzyx-forge`, `phzyx-auth`, `phzyx-cache` (no separate `phzyx-schema` / `phzyx-orm` on PyPI)
 - CLI: included with forge; `phzyx new myapp` / `phzyx forge init`
-- Dev workspace: `uv sync --all-packages --group dev`
+- Dev monorepo: `uv sync --all-packages` (split packages for development)
 
 ## Scaffold (preferred app shape)
 
@@ -50,23 +49,32 @@ Existing project: `phzyx forge init --yes` (island only; does not clobber main.p
 
 ## Package map
 
-| Folder | PyPI | Import |
-|--------|------|--------|
-| packages/schema | phzyx-schema | phzyx.schema |
-| packages/engine | phzyx-engine | phzyx.engine |
-| packages/orm | phzyx-orm | phzyx.orm |
-| packages/admin | phzyx-admin | phzyx.admin |
-| packages/admin-fastapi | phzyx-admin-fastapi | phzyx.admin.fastapi |
-| packages/admin-litestar | phzyx-admin-litestar | phzyx.admin.litestar |
-| packages/cli | phzyx-cli | CLI `phzyx` |
-| packages/cache | phzyx-cache | phzyx.cache |
-| packages/auth | phzyx-auth | phzyx.auth |
-| packages/meta-forge | phzyx-forge | Forge install-all |
-| packages/meta | phzyx | ecosystem install-all |
+### Public PyPI
+
+| PyPI | Import / role |
+|------|----------------|
+| phzyx-forge | full product (fat wheel) |
+| phzyx-auth | phzyx.auth |
+| phzyx-cache | phzyx.cache |
+
+### Monorepo modules (dev; ship inside phzyx-forge on PyPI)
+
+| Folder | Import |
+|--------|--------|
+| packages/schema | phzyx.schema |
+| packages/engine | phzyx.engine |
+| packages/orm | phzyx.orm |
+| packages/admin | phzyx.admin |
+| packages/admin-fastapi | phzyx.admin.fastapi |
+| packages/admin-litestar | phzyx.admin.litestar |
+| packages/cli | CLI `phzyx` |
+| packages/auth | phzyx.auth |
+| packages/cache | phzyx.cache |
+| packages/meta-forge | workspace meta for phzyx-forge |
 
 ## Hard product rules (public)
 
-- uv workspace; imports `phzyx.*`; PyPI `phzyx-*`
+- uv workspace; imports `phzyx.*`; public PyPI: forge + auth + cache
 - No `phzyx/__init__.py` at namespace root (PEP 420)
 - AdminBoard UI: Vite + TS + React + TanStack Query/Table/Router + Zustand (UI only)
 - Themes: Magical White + Stellar Dark primary; System Ambient secondary

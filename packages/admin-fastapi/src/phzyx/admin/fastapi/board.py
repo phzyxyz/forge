@@ -157,19 +157,25 @@ class AdminBoard:
 
 
 def _spa_static_dir() -> Path | None:
-    # Prefer packaged dist next to admin package
-    candidates = [
-        Path(__file__).resolve().parents[2] / "static",  # unlikely
-        Path(__file__).resolve().parents[4] / "admin" / "web" / "dist",
-        Path(__file__).resolve().parents[3] / "web" / "dist",
-    ]
-    # packages/admin/web/dist relative from admin-fastapi package
+    """Locate AdminBoard SPA assets (fat wheel, vendored static, or monorepo).
+
+    Layouts (``board.py`` at ``…/phzyx/admin/fastapi/board.py``):
+    - Fat ``phzyx-forge`` wheel: ``phzyx/admin/web/dist``
+    - Vendored: ``phzyx/admin/static``
+    - Dev monorepo: ``packages/admin/web/dist``
+    """
     here = Path(__file__).resolve()
-    # .../packages/admin-fastapi/src/phzyx/admin/fastapi/board.py
-    monorepo_admin_web = here.parents[5] / "admin" / "web" / "dist"
-    candidates.insert(0, monorepo_admin_web)
-    pkg_static = here.parents[2] / "static"  # phzyx/admin/static if vendored
-    candidates.append(pkg_static)
+    admin_pkg = here.parents[1]  # …/phzyx/admin
+    candidates = [
+        admin_pkg / "web" / "dist",  # fat wheel / packaged layout
+        admin_pkg / "static",
+        here.parents[2] / "web" / "dist",
+        here.parents[3] / "web" / "dist",
+        here.parents[4] / "admin" / "web" / "dist",
+    ]
+    # packages/admin-fastapi/src/phzyx/admin/fastapi/board.py → packages/admin/web/dist
+    if len(here.parents) > 5:
+        candidates.append(here.parents[5] / "admin" / "web" / "dist")
     for c in candidates:
         if c.is_dir() and (c / "index.html").exists():
             return c

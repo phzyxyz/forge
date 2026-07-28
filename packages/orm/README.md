@@ -1,5 +1,8 @@
 # phzyx-orm
 
+**Not a separate PyPI project** — ships inside **`phzyx-forge`**. Use `uv add 'phzyx-forge[sqlite]==0.1.0'`.
+
+
 **Async-first** ORM sessions over Phzyx models. Prefer `AsyncSession` for app routes.
 Sync `Session` mirrors the same API for scripts/CLI **and** AdminBoard’s `session_factory` today.
 

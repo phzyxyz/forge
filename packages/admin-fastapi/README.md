@@ -1,5 +1,8 @@
 # phzyx-admin-fastapi
 
+**Not a separate PyPI project** — ships inside **`phzyx-forge`**. Use `uv add 'phzyx-forge[sqlite]==0.1.0'`.
+
+
 ```python
 from phzyx.admin.fastapi import AdminBoard
 

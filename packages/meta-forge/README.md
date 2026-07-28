@@ -1,32 +1,38 @@
 # phzyx-forge
 
-**Forge** — Phzyx data product meta package (install-all for the Forge line).
+**Forge** — Phzyx data product. One install for schema, failsafe migrations, ORM, AdminBoard, and CLI.
+
+## Install (PyPI)
 
 ```bash
-uv add phzyx-forge
-# or
-pip install phzyx-forge
+uv add 'phzyx-forge[sqlite,auth]==0.1.0'
 ```
 
-## What you get
+The **PyPI** distribution is a **fat wheel** (all core modules + AdminBoard SPA).  
+Built by `scripts/build_pypi_release.py` — not this empty meta package.
 
-| Package | Role |
-|---------|------|
-| `phzyx-schema` | Pydantic models as schema truth |
-| `phzyx-engine` | Introspect, push, migrate |
-| `phzyx-orm` | Sessions, queries, FileField keys |
-| `phzyx-admin` | AdminBoard headless core |
-| `phzyx-admin-fastapi` | FastAPI AdminBoard mount |
-| `phzyx-cli` | `phzyx` CLI |
+Optional batteries:
 
-Imports stay under **`phzyx.*`** (e.g. `from phzyx.orm import Session`).
+```bash
+uv add 'phzyx-forge[auth]'    # or: uv add phzyx-auth
+uv add 'phzyx-forge[cache]'   # or: uv add phzyx-cache
+```
 
-## Related
+## Monorepo (developers)
 
-| Command | Meaning |
-|---------|---------|
-| `uv add phzyx` | Entire Phzyx ecosystem meta (grows as products publish; today ≈ Forge set) |
-| `uv add phzyx-orm` | Single modular package |
-| `uv add phzyx-auth` | Optional identity (not included here) |
+In this workspace, `phzyx-forge` is a **meta package**: it depends on split packages
+(`phzyx-schema`, `phzyx-engine`, `phzyx-orm`, …) for fast editable installs and tests.
 
-AdminBoard is a **sub-product of Forge**, not a separate install-all.
+Do **not** mix a fat wheel install into the monorepo `.venv` alongside those split packages.
+
+## Imports
+
+```python
+from phzyx.schema.model import Model
+from phzyx.orm import Session
+from phzyx.admin.fastapi import AdminBoard
+```
+
+```bash
+phzyx --help
+```

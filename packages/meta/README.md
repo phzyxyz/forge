@@ -1,3 +1,7 @@
+# phzyx (ecosystem meta)
+
+**Not published for 0.1.0.** Use **`phzyx-forge`** as the product install.
+
 # phzyx
 
 **Ecosystem install-all** meta package for the Phzyx brand.

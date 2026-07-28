@@ -1,5 +1,8 @@
 # phzyx-cache
 
+**Public battery.** `uv add 'phzyx-cache==0.1.0'` or `uv add 'phzyx-forge[cache]'`.
+
+
 Per-resource **version keys** for list caching. Writes bump the version so stale lists miss.
 
 ```python

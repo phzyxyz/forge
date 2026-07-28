@@ -1,8 +1,10 @@
-# Publish pure-Python packages to PyPI on version tags (Trusted Publishing).
+# Publish public PyPI surface on version tags (Trusted Publishing).
 # Tag format: v0.1.0
-# Configure each PyPI project with GitHub OIDC Trusted Publisher:
-#   owner/repo = phzyxyz/forge, workflow = publish.yml, environment = pypi
-# Do not publish: phzyx-workspace, phzyx-plugin-hello
+# Production: phzyxyz/forge · OIDC: owner/repo=phzyxyz/forge, workflow=publish.yml, env=pypi
+#
+# Public packages ONLY (fat forge + batteries):
+#   phzyx-forge · phzyx-auth · phzyx-cache
+# Built by scripts/build_pypi_release.py — never upload split monorepo packages.
 name: Publish
 
 on:
@@ -21,7 +23,7 @@ permissions:
 
 jobs:
   build:
-    name: build wheels/sdists
+    name: build public wheels
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
@@ -37,26 +39,10 @@ jobs:
       - name: Sync workspace
         run: uv sync --all-packages --group dev
 
-      - name: Build all publishable packages
+      - name: Build public PyPI surface (fat forge + auth + cache)
         run: |
           set -euo pipefail
-          mkdir -p dist
-          for name in \
-            phzyx-schema \
-            phzyx-engine \
-            phzyx-orm \
-            phzyx-admin \
-            phzyx-admin-fastapi \
-            phzyx-admin-litestar \
-            phzyx-auth \
-            phzyx-cli \
-            phzyx-cache \
-            phzyx-forge \
-            phzyx
-          do
-            echo "==> $name"
-            uv build --package "$name" -o dist
-          done
+          uv run python scripts/build_pypi_release.py --clean
           ls -la dist
 
       - name: Upload artifacts

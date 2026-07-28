@@ -20,51 +20,47 @@ Imports are always **`phzyx.*`** (product name ≠ import path).
 
 ## Install
 
-### From PyPI (when published)
-
 ```bash
-uv add 'phzyx-forge[sqlite,auth]'
-# or: pip install 'phzyx-forge[sqlite,auth]'
+# Product (fat wheel on PyPI)
+uv add 'phzyx-forge[sqlite,auth]==0.1.0'
+
+# Optional batteries
+uv add 'phzyx-auth==0.1.0'
+uv add 'phzyx-cache==0.1.0'
 ```
 
-Pin for apps: `phzyx-forge==0.1.0` (and the same pin for modular packages if you install them separately).
+**Public PyPI names only:** `phzyx-forge` · `phzyx-auth` · `phzyx-cache`.  
+Internal packages (`schema`, `orm`, …) ship inside the fat forge wheel.
 
-### From this repo (today / contributors)
+Until PyPI: `uv sync --all-packages --group dev` from this repo.
 
-```bash
-git clone https://github.com/phzyxyz/forge.git
-cd forge
-uv sync --all-packages --group dev
-```
-
-Editable workspace packages are then available via `uv run`. Scaffold:
-
-```bash
-uv run phzyx new myapp --preset max
-cd myapp
-uv run phzyx db push --models app.forge.registry:ALL_MODELS --yes
-uv run uvicorn app.main:app --reload
-```
-
-**0.x contract:** public APIs may change before 1.0. Prefer pins and the docs site over blog posts.
-
----
 
 ## Packages
 
-| Folder | PyPI | Import |
-|--------|------|--------|
-| `packages/schema` | `phzyx-schema` | `phzyx.schema` |
-| `packages/engine` | `phzyx-engine` | `phzyx.engine` |
-| `packages/orm` | `phzyx-orm` | `phzyx.orm` |
-| `packages/admin` | `phzyx-admin` | `phzyx.admin` |
-| `packages/admin-fastapi` | `phzyx-admin-fastapi` | `phzyx.admin.fastapi` |
-| `packages/admin-litestar` | `phzyx-admin-litestar` | `phzyx.admin.litestar` |
-| `packages/auth` | `phzyx-auth` | `phzyx.auth` |
-| `packages/cli` | `phzyx-cli` | CLI `phzyx` |
-| `packages/cache` | `phzyx-cache` | `phzyx.cache` |
-| `packages/meta-forge` | **`phzyx-forge`** | Forge install-all |
-| `packages/meta` | **`phzyx`** | ecosystem install-all |
+### Public (PyPI)
+
+| PyPI | Role |
+|------|------|
+| **`phzyx-forge`** | Full product (fat wheel: schema, engine, ORM, AdminBoard, CLI) |
+| **`phzyx-auth`** | Auth battery |
+| **`phzyx-cache`** | Cache battery |
+
+### Repo layout (dev modules; core ships inside forge on PyPI)
+
+| Folder | Import |
+|--------|--------|
+| `packages/schema` | `phzyx.schema` |
+| `packages/engine` | `phzyx.engine` |
+| `packages/orm` | `phzyx.orm` |
+| `packages/admin` | `phzyx.admin` |
+| `packages/admin-fastapi` | `phzyx.admin.fastapi` |
+| `packages/admin-litestar` | `phzyx.admin.litestar` |
+| `packages/cli` | CLI `phzyx` |
+| `packages/auth` | `phzyx.auth` |
+| `packages/cache` | `phzyx.cache` |
+| `packages/meta-forge` | workspace meta for `phzyx-forge` |
+
+Release build: `uv run python scripts/build_pypi_release.py` · see `docs/ops/PYPI_PUBLISH.md`.
 
 Namespace layout is **PEP 420** — there is **no** `phzyx/__init__.py` at the namespace root.
 

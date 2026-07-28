@@ -1,11 +1,13 @@
 [project]
 name = "phzyx-forge"
 version = "0.1.0"
-description = "Phzyx Forge — schema, failsafe migrations, ORM, AdminBoard, CLI (coordinated pins)"
+description = "Phzyx Forge — schema, failsafe migrations, ORM, AdminBoard, CLI (workspace meta; PyPI is a fat wheel)"
 readme = "README.md"
 requires-python = ">=3.11"
 license = "MIT"
 authors = [{ name = "Athul Nandaswaroop" }]
+# Workspace / monorepo: meta package pulls split editable packages.
+# PyPI upload uses scripts/build_pypi_release.py (fat wheel with vendored modules).
 dependencies = [
   "phzyx-schema==0.1.0",
   "phzyx-engine==0.1.0",
@@ -21,9 +23,13 @@ postgres = ["asyncpg", "psycopg[binary]>=3"]
 mysql = ["pymysql"]
 mssql = ["pymssql>=2.3"]
 auth = ["phzyx-auth[fastapi]"]
-full = ["aiosqlite", "phzyx-auth[fastapi]"]
+cache = ["phzyx-cache"]
+litestar = ["phzyx-admin-litestar", "litestar>=2.12"]
+full = ["aiosqlite", "phzyx-auth[fastapi]", "phzyx-cache"]
 
-# Optional batteries also: phzyx-cache, litestar adapter (install separately).
+[project.scripts]
+# Entry point lives on phzyx-cli in the monorepo; fat PyPI wheel defines phzyx too.
+# Keep CLI package as the workspace provider of `phzyx`.
 
 [tool.uv.sources]
 phzyx-schema = { workspace = true }
@@ -31,13 +37,15 @@ phzyx-engine = { workspace = true }
 phzyx-orm = { workspace = true }
 phzyx-admin = { workspace = true }
 phzyx-admin-fastapi = { workspace = true }
+phzyx-admin-litestar = { workspace = true }
 phzyx-cli = { workspace = true }
 phzyx-auth = { workspace = true }
+phzyx-cache = { workspace = true }
 
 [build-system]
 requires = ["hatchling"]
 build-backend = "hatchling.build"
 
 [tool.hatch.build.targets.wheel]
-# Dependency-only meta package (no modules). Empty wheel is intentional.
+# Dependency-only meta package (no modules). Empty wheel is intentional for monorepo.
 bypass-selection = true

@@ -1,10 +1,12 @@
-# phzyx-schema
+# phzyx-schema (monorepo internal)
 
 Phzyx schema language — Pydantic models → Manifest IR → CREATE TABLE (Postgres / SQLite).
 
+**Not a separate PyPI project.** Install the product:
+
 ```bash
-uv add phzyx-schema
-# or: uv add phzyx
+uv add 'phzyx-forge[sqlite]==0.1.0'
+# import: from phzyx.schema …
 ```
 
 ## Quick start

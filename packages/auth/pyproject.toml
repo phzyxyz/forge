@@ -1,14 +1,13 @@
 [project]
 name = "phzyx-auth"
 version = "0.1.0"
-description = "Phzyx Auth — secure-by-default identity, sessions, JWT, API keys, RBAC"
+description = "Phzyx Auth — secure-by-default identity, sessions, JWT, API keys, RBAC (Forge battery)"
 readme = "README.md"
 requires-python = ">=3.11"
 license = "MIT"
 authors = [{ name = "Athul Nandaswaroop" }]
 dependencies = [
-  "phzyx-schema",
-  "phzyx-orm",
+  "phzyx-forge>=0.1.0,<0.2",
   "pydantic>=2",
   "argon2-cffi>=23",
   "PyJWT>=2.8",
@@ -25,9 +24,12 @@ litestar = ["litestar>=2.12"]
 [project.scripts]
 phzyx-auth = "phzyx.auth.cli:main"
 
+[project.urls]
+Homepage = "https://phzyx.xyz"
+Repository = "https://github.com/phzyxyz/forge"
+
 [tool.uv.sources]
-phzyx-schema = { workspace = true }
-phzyx-orm = { workspace = true }
+phzyx-forge = { workspace = true }
 
 [build-system]
 requires = ["hatchling"]

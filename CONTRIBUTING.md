@@ -32,17 +32,17 @@ pnpm check
 
 ## Package naming
 
-| Folder | PyPI | Import |
-|--------|------|--------|
-| `packages/schema` | `phzyx-schema` | `phzyx.schema` |
-| `packages/engine` | `phzyx-engine` | `phzyx.engine` |
-| `packages/orm` | `phzyx-orm` | `phzyx.orm` |
-| `packages/admin` | `phzyx-admin` | `phzyx.admin` |
-| `packages/admin-fastapi` | `phzyx-admin-fastapi` | `phzyx.admin.fastapi` |
-| `packages/admin-litestar` | `phzyx-admin-litestar` | `phzyx.admin.litestar` |
-| `packages/auth` | `phzyx-auth` | `phzyx.auth` |
-| `packages/cli` | `phzyx-cli` | CLI `phzyx` |
-| `packages/cache` | `phzyx-cache` | `phzyx.cache` |
+| Folder | Notes | Import |
+|--------|-------|--------|
+| `packages/schema` | ships in fat `phzyx-forge` | `phzyx.schema` |
+| `packages/engine` | internal (in forge wheel) | `phzyx.engine` |
+| `packages/orm` | internal (in forge wheel) | `phzyx.orm` |
+| `packages/admin` | internal (in forge wheel) | `phzyx.admin` |
+| `packages/admin-fastapi` | internal (in forge wheel) | `phzyx.admin.fastapi` |
+| `packages/admin-litestar` | internal (in forge wheel) | `phzyx.admin.litestar` |
+| `packages/auth` | **PyPI** | `phzyx.auth` |
+| `packages/cli` | internal (in forge wheel) | CLI `phzyx` |
+| `packages/cache` | **PyPI** | `phzyx.cache` |
 | `packages/meta-forge` | `phzyx-forge` | install-all (Forge) |
 | `packages/meta` | `phzyx` | ecosystem install-all |
 
