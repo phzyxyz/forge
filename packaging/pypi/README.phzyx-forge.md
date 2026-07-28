@@ -34,12 +34,25 @@ uv add phzyx-forge
 pip install phzyx-forge
 ```
 
-That is the **full product** for local work: schema · engine · ORM · AdminBoard (FastAPI + SPA) · CLI · **SQLite** (`aiosqlite` included).
+That is the **full product** for local work: schema · engine · ORM · AdminBoard (**FastAPI** + SPA) · CLI · **SQLite** (`aiosqlite` included).
+
+**FastAPI is required** for the default AdminBoard path (included as a dependency). Forge is built to **complete the FastAPI-era feature set** — stay on the API stack you chose instead of switching frameworks only for admin/batteries.
 
 ```bash
 phzyx --help
+# Greenfield: create folder + scaffold
 phzyx new myapp --preset max
+# Existing FastAPI app: scaffold in this directory
+phzyx forge init --yes --preset max
 ```
+
+| CLI | When |
+|-----|------|
+| `phzyx new NAME` | New project **directory** |
+| `phzyx forge init` | Scaffold **here** |
+| `phzyx add auth\|admin` | One wiring file only (not install) |
+
+Full CLI docs: [phzyx.xyz/forge/cli](https://phzyx.xyz/forge/cli).
 
 ### Extras (when you need them)
 

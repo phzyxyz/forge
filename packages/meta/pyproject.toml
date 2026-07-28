@@ -1,18 +1,18 @@
 [project]
 name = "phzyx"
-version = "0.1.0"
+version = "0.1.1"
 description = "Phzyx — ecosystem install-all (all published products; today ≈ Forge stack)"
 readme = "README.md"
 requires-python = ">=3.11"
 license = "MIT"
 authors = [{ name = "Athul Nandaswaroop" }]
 dependencies = [
-  "phzyx-schema==0.1.0",
-  "phzyx-engine==0.1.0",
-  "phzyx-orm==0.1.0",
-  "phzyx-admin==0.1.0",
-  "phzyx-admin-fastapi==0.1.0",
-  "phzyx-cli==0.1.0",
+  "phzyx-schema==0.1.1",
+  "phzyx-engine==0.1.1",
+  "phzyx-orm==0.1.1",
+  "phzyx-admin==0.1.1",
+  "phzyx-admin-fastapi==0.1.1",
+  "phzyx-cli==0.1.1",
 ]
 
 # Ecosystem meta: add phzyx-pulse (etc.) when those packages publish.

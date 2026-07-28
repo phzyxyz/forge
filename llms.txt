@@ -1,6 +1,6 @@
 # Phzyx — LLM / agent map (0.1)
 
-> Status: **0.1.0** pre-1.0 · **M8** Forge restructure. APIs may change before 1.0. Prefer this file + docs for current APIs.
+> Status: **0.1.1** pre-1.0 Forge restructure. APIs may change before 1.0. Prefer this file + docs for current APIs.
 > **Keep this file updated whenever install / extras / public package surface changes.**
 
 ## What Phzyx is
@@ -22,14 +22,23 @@ Phzyx is Athul Nandaswaroop’s open-source **ecosystem brand** (TanStack-shaped
 
 ## Scaffold (preferred app shape)
 
+**FastAPI required** for default AdminBoard path (included with `phzyx-forge`).
+
+| Command | When |
+|---------|------|
+| `phzyx new NAME` | Creates `./NAME` then scaffolds (greenfield) |
+| `phzyx forge init` | Scaffold in current directory (existing app) |
+| `phzyx add auth\|admin` | One wiring module only — does not install packages |
+
 ```bash
+uv add phzyx-forge
 phzyx new myapp --preset max
 # app/api async · app/forge dual session + registry · mount_forge(app)
 phzyx db push --models app.forge.registry:ALL_MODELS --yes
 uvicorn app.main:app --reload
 ```
 
-Existing project: `phzyx forge init --yes` (island only; does not clobber main.py).
+Existing project: `phzyx forge init --yes` (does not clobber main.py). CLI map: https://phzyx.xyz/forge/cli · Cache: https://phzyx.xyz/forge/cache
 
 ## Canonical docs (public site)
 

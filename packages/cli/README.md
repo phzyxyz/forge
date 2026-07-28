@@ -1,13 +1,24 @@
-# phzyx-cli
+# phzyx CLI
 
-**Not a separate PyPI project** — ships inside **`phzyx-forge`**. Use `uv add phzyx-forge`.
+**Not a separate PyPI project** — ships inside **`phzyx-forge`**.
 
+```bash
+uv add phzyx-forge
+```
 
-Phzyx command-line interface: project scaffold, schema push/migrate, doctor.
+**FastAPI** is the default product path (AdminBoard adapter included). Full docs: [phzyx.xyz/forge/cli](https://phzyx.xyz/forge/cli).
 
-Part of [Phzyx Forge](https://phzyx.xyz/forge). Install via `uv add phzyx-forge` or `uv add phzyx-cli`.
+## Which command?
 
-## Scaffold a new app (recommended)
+| Command | When |
+|---------|------|
+| **`phzyx new NAME`** | Greenfield — **creates** `./NAME` then scaffolds |
+| **`phzyx forge init`** | Scaffold **here** (existing FastAPI app or empty dir) |
+| **`phzyx add auth\|admin`** | Drop **one** wiring module only (does **not** install packages) |
+
+Same scaffold engine for `new` and `forge init`; only the target path differs.
+
+## Greenfield
 
 ```bash
 uv add phzyx-forge
@@ -19,8 +30,6 @@ uv run phzyx db push --models app.forge.registry:ALL_MODELS --yes
 uv run uvicorn app.main:app --reload
 ```
 
-Creates a modern async FastAPI app with `app/forge/` (db, models, registry, admin, auth).
-
 ### Presets
 
 | Preset | Features |
@@ -30,27 +39,26 @@ Creates a modern async FastAPI app with `app/forge/` (db, models, registry, admi
 | `max` (default) | + AdminBoard with staff authz |
 | `full` | max + docker-compose |
 
-### Existing project
+## Existing project
 
 ```bash
 cd my-fastapi-app
+uv add phzyx-forge
 phzyx forge init --yes --preset max
-# wires app/forge/ without clobbering main.py
+# wires app/forge/ without clobbering main.py by default
 ```
 
-### Flags
+## Add batteries (wiring only)
 
-- `--force` — overwrite scaffold-owned files  
-- `--yes` / `-y` — non-interactive defaults  
-- `--no-input` — never prompt (fail if a decision is required)  
-- `--dry-run` — print plan only  
-- `--db sqlite|postgres` — env templates  
+```bash
+uv add 'phzyx-forge[auth]'   # install package yourself
+phzyx add auth               # → app/forge/auth.py
+phzyx add admin              # → app/forge/admin.py
+```
 
 ## Other commands
 
 ```bash
-phzyx add admin          # → app/forge/admin.py
-phzyx add auth           # → app/forge/auth.py
 phzyx doctor
 phzyx db push --models app.forge.registry:ALL_MODELS --yes
 phzyx migrate status|create|apply
@@ -60,4 +68,4 @@ phzyx auth create-superuser
 ## Docs
 
 - Getting started: https://phzyx.xyz/forge/getting-started  
-- CLI reference: https://phzyx.xyz/forge/cli  
+- CLI: https://phzyx.xyz/forge/cli  

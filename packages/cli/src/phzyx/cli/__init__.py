@@ -8,13 +8,27 @@ import os
 import sys
 from typing import Any
 
-__version__ = "0.1.0"
+__version__ = "0.1.1"
+
+_EPILOG = """\
+scaffold choices:
+  phzyx new NAME          create ./NAME then scaffold (greenfield)
+  phzyx forge init        scaffold in current directory (existing app)
+  phzyx add auth|admin    one wiring module only (not a full app)
+
+docs: https://phzyx.xyz/forge/cli  ·  getting started: https://phzyx.xyz/forge/getting-started
+"""
 
 
 def main(argv: list[str] | None = None) -> int:
     """Entry point for the ``phzyx`` console script."""
     args = list(argv if argv is not None else sys.argv[1:])
-    parser = argparse.ArgumentParser(prog="phzyx", description="Phzyx CLI")
+    parser = argparse.ArgumentParser(
+        prog="phzyx",
+        description="Phzyx CLI (ships with phzyx-forge; FastAPI default path)",
+        epilog=_EPILOG,
+        formatter_class=argparse.RawDescriptionHelpFormatter,
+    )
     parser.add_argument("--version", action="version", version=f"phzyx {__version__}")
     sub = parser.add_subparsers(dest="command")
 
@@ -45,7 +59,10 @@ def main(argv: list[str] | None = None) -> int:
     su.add_argument("--email")
     su.add_argument("--password")
 
-    add = sub.add_parser("add", help="add package scaffolds to a project")
+    add = sub.add_parser(
+        "add",
+        help="add one battery wiring module (not install; use uv add for packages)",
+    )
     add_sub = add.add_subparsers(dest="add_command")
     add_auth = add_sub.add_parser("auth", help="scaffold phzyx-auth wiring")
     add_auth.add_argument("--path", default=".", help="project directory (default: cwd)")
@@ -67,8 +84,11 @@ def main(argv: list[str] | None = None) -> int:
     add_admin.add_argument("--force", action="store_true")
     add_admin.add_argument("--dry-run", action="store_true")
 
-    new_p = sub.add_parser("new", help="scaffold a new Phzyx Forge project")
-    new_p.add_argument("name", help="project directory name")
+    new_p = sub.add_parser(
+        "new",
+        help="create a new project directory and scaffold Forge into it",
+    )
+    new_p.add_argument("name", help="new project directory name (created under --path)")
     new_p.add_argument(
         "--preset",
         default="max",
@@ -92,9 +112,12 @@ def main(argv: list[str] | None = None) -> int:
     new_p.add_argument("--with-admin", action="store_true")
     new_p.add_argument("--no-admin", action="store_true")
 
-    forge = sub.add_parser("forge", help="Forge project helpers")
+    forge = sub.add_parser("forge", help="Forge helpers (init into existing/empty dir)")
     forge_sub = forge.add_subparsers(dest="forge_command")
-    fin = forge_sub.add_parser("init", help="configure Forge in current or given directory")
+    fin = forge_sub.add_parser(
+        "init",
+        help="scaffold Forge in --path (default cwd); does not create a parent folder",
+    )
     fin.add_argument("--path", default=".", help="project root (default: cwd)")
     fin.add_argument("--name", default=None, help="project name (default: directory name)")
     fin.add_argument(

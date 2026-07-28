@@ -987,7 +987,7 @@ wheels = [
 
 [[package]]
 name = "phzyx"
-version = "0.1.0"
+version = "0.1.1"
 source = { editable = "packages/meta" }
 dependencies = [
     { name = "phzyx-admin" },
@@ -1010,7 +1010,7 @@ requires-dist = [
 
 [[package]]
 name = "phzyx-admin"
-version = "0.1.0"
+version = "0.1.1"
 source = { editable = "packages/admin" }
 dependencies = [
     { name = "phzyx-orm" },
@@ -1021,7 +1021,7 @@ requires-dist = [{ name = "phzyx-orm", editable = "packages/orm" }]
 
 [[package]]
 name = "phzyx-admin-fastapi"
-version = "0.1.0"
+version = "0.1.1"
 source = { editable = "packages/admin-fastapi" }
 dependencies = [
     { name = "fastapi" },
@@ -1038,7 +1038,7 @@ requires-dist = [
 
 [[package]]
 name = "phzyx-admin-litestar"
-version = "0.1.0"
+version = "0.1.1"
 source = { editable = "packages/admin-litestar" }
 dependencies = [
     { name = "litestar" },
@@ -1053,7 +1053,7 @@ requires-dist = [
 
 [[package]]
 name = "phzyx-auth"
-version = "0.1.0"
+version = "0.1.1"
 source = { editable = "packages/auth" }
 dependencies = [
     { name = "argon2-cffi" },
@@ -1101,7 +1101,7 @@ provides-extras = ["redis", "oauth", "mfa", "webauthn", "fastapi", "litestar"]
 
 [[package]]
 name = "phzyx-cache"
-version = "0.1.0"
+version = "0.1.1"
 source = { editable = "packages/cache" }
 
 [package.optional-dependencies]
@@ -1115,7 +1115,7 @@ provides-extras = ["redis"]
 
 [[package]]
 name = "phzyx-cli"
-version = "0.1.0"
+version = "0.1.1"
 source = { editable = "packages/cli" }
 dependencies = [
     { name = "phzyx-engine" },
@@ -1132,7 +1132,7 @@ requires-dist = [
 
 [[package]]
 name = "phzyx-engine"
-version = "0.1.0"
+version = "0.1.1"
 source = { editable = "packages/engine" }
 dependencies = [
     { name = "phzyx-schema" },
@@ -1156,9 +1156,10 @@ provides-extras = ["mysql", "mssql"]
 
 [[package]]
 name = "phzyx-forge"
-version = "0.1.0"
+version = "0.1.1"
 source = { editable = "packages/meta-forge" }
 dependencies = [
+    { name = "aiosqlite" },
     { name = "phzyx-admin" },
     { name = "phzyx-admin-fastapi" },
     { name = "phzyx-cli" },
@@ -1175,9 +1176,14 @@ cache = [
     { name = "phzyx-cache" },
 ]
 full = [
-    { name = "aiosqlite" },
+    { name = "asyncpg" },
+    { name = "litestar" },
+    { name = "phzyx-admin-litestar" },
     { name = "phzyx-auth", extra = ["fastapi"] },
     { name = "phzyx-cache" },
+    { name = "psycopg", extra = ["binary"] },
+    { name = "pymssql" },
+    { name = "pymysql" },
 ]
 litestar = [
     { name = "litestar" },
@@ -1193,18 +1199,17 @@ postgres = [
     { name = "asyncpg" },
     { name = "psycopg", extra = ["binary"] },
 ]
-sqlite = [
-    { name = "aiosqlite" },
-]
 
 [package.metadata]
 requires-dist = [
-    { name = "aiosqlite", marker = "extra == 'full'" },
-    { name = "aiosqlite", marker = "extra == 'sqlite'" },
+    { name = "aiosqlite" },
+    { name = "asyncpg", marker = "extra == 'full'" },
     { name = "asyncpg", marker = "extra == 'postgres'" },
+    { name = "litestar", marker = "extra == 'full'", specifier = ">=2.12" },
     { name = "litestar", marker = "extra == 'litestar'", specifier = ">=2.12" },
     { name = "phzyx-admin", editable = "packages/admin" },
     { name = "phzyx-admin-fastapi", editable = "packages/admin-fastapi" },
+    { name = "phzyx-admin-litestar", marker = "extra == 'full'", editable = "packages/admin-litestar" },
     { name = "phzyx-admin-litestar", marker = "extra == 'litestar'", editable = "packages/admin-litestar" },
     { name = "phzyx-auth", extras = ["fastapi"], marker = "extra == 'auth'", editable = "packages/auth" },
     { name = "phzyx-auth", extras = ["fastapi"], marker = "extra == 'full'", editable = "packages/auth" },
@@ -1214,15 +1219,18 @@ requires-dist = [
     { name = "phzyx-engine", editable = "packages/engine" },
     { name = "phzyx-orm", editable = "packages/orm" },
     { name = "phzyx-schema", editable = "packages/schema" },
+    { name = "psycopg", extras = ["binary"], marker = "extra == 'full'", specifier = ">=3" },
     { name = "psycopg", extras = ["binary"], marker = "extra == 'postgres'", specifier = ">=3" },
+    { name = "pymssql", marker = "extra == 'full'", specifier = ">=2.3" },
     { name = "pymssql", marker = "extra == 'mssql'", specifier = ">=2.3" },
+    { name = "pymysql", marker = "extra == 'full'" },
     { name = "pymysql", marker = "extra == 'mysql'" },
 ]
 provides-extras = ["sqlite", "postgres", "mysql", "mssql", "auth", "cache", "litestar", "full"]
 
 [[package]]
 name = "phzyx-orm"
-version = "0.1.0"
+version = "0.1.1"
 source = { editable = "packages/orm" }
 dependencies = [
     { name = "phzyx-engine" },
@@ -1260,7 +1268,7 @@ provides-extras = ["postgres", "sqlite", "mysql", "mssql"]
 
 [[package]]
 name = "phzyx-plugin-hello"
-version = "0.1.0"
+version = "0.1.1"
 source = { editable = "packages/plugin-hello" }
 dependencies = [
     { name = "phzyx-admin" },
@@ -1271,7 +1279,7 @@ requires-dist = [{ name = "phzyx-admin", editable = "packages/admin" }]
 
 [[package]]
 name = "phzyx-schema"
-version = "0.1.0"
+version = "0.1.1"
 source = { editable = "packages/schema" }
 dependencies = [
     { name = "pydantic" },

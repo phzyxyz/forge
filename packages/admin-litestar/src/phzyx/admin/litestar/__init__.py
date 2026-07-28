@@ -13,7 +13,7 @@ from phzyx.admin.themes import DEFAULT_THEME, PRIMARY_THEMES, normalize_theme
 from phzyx.orm.session_sync import Session
 from phzyx.schema.model import Model
 
-__version__ = "0.1.0"
+__version__ = "0.1.1"
 
 
 class AdminBoardConfig:

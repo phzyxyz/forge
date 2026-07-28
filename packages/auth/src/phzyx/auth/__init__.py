@@ -58,7 +58,7 @@ from phzyx.auth.service_async import AsyncAuthService
 from phzyx.auth.sessions import MemorySessionStore
 from phzyx.auth.tokens import JwtService, TokenPair
 
-__version__ = "0.1.0"
+__version__ = "0.1.1"
 
 __all__ = [
     "AUTH_MODELS",

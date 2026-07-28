@@ -1,6 +1,6 @@
 [project]
 name = "phzyx-forge"
-version = "0.1.0"
+version = "0.1.1"
 description = "Phzyx Forge — schema, failsafe migrations, ORM, AdminBoard, CLI (workspace meta; PyPI is a fat wheel)"
 readme = "README.md"
 requires-python = ">=3.11"
@@ -9,12 +9,12 @@ authors = [{ name = "Athul Nandaswaroop" }]
 # Workspace / monorepo: meta package pulls split editable packages.
 # PyPI upload uses scripts/build_pypi_release.py (fat wheel with vendored modules).
 dependencies = [
-  "phzyx-schema==0.1.0",
-  "phzyx-engine==0.1.0",
-  "phzyx-orm==0.1.0",
-  "phzyx-admin==0.1.0",
-  "phzyx-admin-fastapi==0.1.0",
-  "phzyx-cli==0.1.0",
+  "phzyx-schema==0.1.1",
+  "phzyx-engine==0.1.1",
+  "phzyx-orm==0.1.1",
+  "phzyx-admin==0.1.1",
+  "phzyx-admin-fastapi==0.1.1",
+  "phzyx-cli==0.1.1",
   "aiosqlite",  # full default Forge local stack (matches PyPI fat wheel)
 ]
 
