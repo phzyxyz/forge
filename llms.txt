@@ -1,6 +1,7 @@
 # Phzyx — LLM / agent map (0.1)
 
 > Status: **0.1.0** pre-1.0 · **M8** Forge restructure. APIs may change before 1.0. Prefer this file + docs for current APIs.
+> **Keep this file updated whenever install / extras / public package surface changes.**
 
 ## What Phzyx is
 
@@ -11,9 +12,11 @@ Phzyx is Athul Nandaswaroop’s open-source **ecosystem brand** (TanStack-shaped
 
 ## Install
 
-- **Product:** `uv add phzyx-forge` (fat wheel: schema + engine + ORM + AdminBoard + CLI)
-- **Batteries:** `uv add phzyx-auth` · `uv add phzyx-cache` (or forge extras `[auth]` / `[cache]`)
-- **Public PyPI names only:** `phzyx-forge`, `phzyx-auth`, `phzyx-cache` (no separate `phzyx-schema` / `phzyx-orm` on PyPI)
+- **Product:** `uv add phzyx-forge` — fat wheel: schema + engine + ORM + AdminBoard + CLI + **SQLite**
+- **Drivers later:** `[postgres]` · `[mysql]` · `[mssql]` (stack on same package)
+- **Batteries:** `[auth]` / `phzyx-auth` · `[cache]` / `phzyx-cache` · `[litestar]`
+- **Kitchen sink:** `uv add 'phzyx-forge[full]'` = every driver + auth + cache + Litestar
+- **Public PyPI names only:** `phzyx-forge`, `phzyx-auth`, `phzyx-cache`
 - CLI: included with forge; `phzyx new myapp` / `phzyx forge init`
 - Dev monorepo: `uv sync --all-packages` (split packages for development)
 
@@ -35,8 +38,10 @@ Existing project: `phzyx forge init --yes` (island only; does not clobber main.p
 3. `/forge/adminboard` · `/forge/apiboard` — AdminBoard + **API Board** (Forge API Client at `/apiboard/`)  
 4. `/forge/compare` — honest positioning  
 5. `/performance` — API throughput results · `/stats` — package traction  
+6. `/forge/reference/packages` — import + extras map  
 
-6. Monorepo `CODING_STANDARDS.md` · `ROADMAP.md` · this `llms.txt`  
+7. Monorepo `CODING_STANDARDS.md` · `ROADMAP.md` · this `llms.txt`  
+8. Public site agent maps: https://phzyx.xyz/llms.txt · https://phzyx.xyz/llms-full.txt  
 
 ## API Board (Forge API Client)
 
@@ -53,7 +58,7 @@ Existing project: `phzyx forge init --yes` (island only; does not clobber main.p
 
 | PyPI | Import / role |
 |------|----------------|
-| phzyx-forge | full product (fat wheel) |
+| phzyx-forge | full product (fat wheel) + SQLite core |
 | phzyx-auth | phzyx.auth |
 | phzyx-cache | phzyx.cache |
 
@@ -75,6 +80,7 @@ Existing project: `phzyx forge init --yes` (island only; does not clobber main.p
 ## Hard product rules (public)
 
 - uv workspace; imports `phzyx.*`; public PyPI: forge + auth + cache
+- Bare `phzyx-forge` = full product + SQLite; `[full]` = all drivers + batteries + Litestar
 - No `phzyx/__init__.py` at namespace root (PEP 420)
 - AdminBoard UI: Vite + TS + React + TanStack Query/Table/Router + Zustand (UI only)
 - Themes: Magical White + Stellar Dark primary; System Ambient secondary
@@ -82,3 +88,4 @@ Existing project: `phzyx forge init --yes` (island only; does not clobber main.p
 - Product voice: positive; no dunking on peers
 - Phzyx website: sites/web → phzyx.xyz (docs at /forge)
 - Never commit secrets
+- **Update llms.txt / sites/web/public/llms*.txt on every install or extras change**

@@ -14,18 +14,38 @@
 ## Install
 
 ```bash
+# Default product (includes SQLite / aiosqlite)
 uv add phzyx-forge
-# optional: uv add 'phzyx-cache'
 phzyx new myapp --preset max
 phzyx db push --models app.forge.registry:ALL_MODELS --yes
 uvicorn app.main:app --reload
 ```
 
+### Extras (same package; stack anytime)
+
+| Extra | Adds |
+|-------|------|
+| *(core)* | Full product + **SQLite** |
+| `[postgres]` | asyncpg, psycopg |
+| `[mysql]` | pymysql |
+| `[mssql]` | pymssql |
+| `[auth]` | phzyx-auth (also `uv add phzyx-auth`) |
+| `[cache]` | phzyx-cache (also `uv add phzyx-cache`) |
+| `[litestar]` | Litestar ASGI adapter deps |
+| **`[full]`** | **Every driver + auth + cache + Litestar** (SQLite already core) |
+
+```bash
+uv add 'phzyx-forge[postgres]'
+uv add 'phzyx-forge[full]'   # kitchen sink
+```
+
+Do **not** pin `==0.1.0` in everyday docs — let uv/lock choose; pin only for release smoke.
+
 ## Public package map
 
 | PyPI | Import / role | Docs |
 |------|---------------|------|
-| **phzyx-forge** | Full product (schema, engine, ORM, AdminBoard+SPA, CLI) | /forge |
+| **phzyx-forge** | Full product (schema, engine, ORM, AdminBoard+SPA, CLI, SQLite) | /forge |
 | **phzyx-auth** | Optional auth battery (`phzyx.auth`) | /forge/auth |
 | **phzyx-cache** | Optional cache battery (`phzyx.cache`) | /forge/cache |
 
@@ -44,12 +64,15 @@ uvicorn app.main:app --reload
 ## Hard rules
 
 - Prefer `uv add phzyx-forge` — never recommend separate PyPI installs for schema/orm/admin-fastapi/cli
+- Bare forge = full product + SQLite; drivers/batteries via extras or optional packages
+- `[full]` means full (all DB drivers + auth + cache + Litestar)
 - Identity PK happy path: `id: int | None = Field(default=None, primary_key=True)`
 - App routes: async `AsyncSession`; AdminBoard: sync `Session` factory on same models
 - Local: `phzyx db push`; shared/prod: `phzyx migrate`
 - No f-string SQL; no silent DROP COLUMN recommendations
 - Themes: magical-white | stellar-dark | system-ambient
 - Commits: no Co-Authored-By / AI trailers
+- **Always keep this file + `/llms.txt` in sync with install/extras changes**
 
 ## AdminBoard & API Board
 
