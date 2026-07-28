@@ -36,7 +36,7 @@ export function resolveRequestUrl(
   env: Environment | null | undefined,
 ): string {
   const vars = envMap(env);
-  let url = interpolate(urlOrPath.trim(), vars);
+  const url = interpolate(urlOrPath.trim(), vars);
   if (!url) {
     const base = (vars.baseUrl || "").replace(/\/+$/, "");
     return base || url;
