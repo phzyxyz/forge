@@ -16,6 +16,9 @@ COPY packages/cli packages/cli
 COPY packages/cache packages/cache
 COPY packages/admin-litestar packages/admin-litestar
 COPY packages/meta packages/meta
+# Workspace meta product (name: phzyx-forge) — required because phzyx-auth
+# declares phzyx-forge = { workspace = true }.
+COPY packages/meta-forge packages/meta-forge
 COPY examples/adminboard_live examples/adminboard_live
 
 # Install workspace (editable) without dev tools + ASGI server
