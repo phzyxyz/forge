@@ -5,7 +5,7 @@ Phzyx schema language — Pydantic models → Manifest IR → CREATE TABLE (Post
 **Not a separate PyPI project.** Install the product:
 
 ```bash
-uv add 'phzyx-forge[sqlite]'
+uv add phzyx-forge
 # import: from phzyx.schema …
 ```
 

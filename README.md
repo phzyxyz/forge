@@ -36,12 +36,12 @@ See [ROADMAP.md](./ROADMAP.md) (M8).
 
 ```bash
 # Product (fat wheel on PyPI: schema + engine + ORM + AdminBoard + CLI)
-uv add 'phzyx-forge[sqlite,auth]'
-# pip install 'phzyx-forge[sqlite,auth]'
+uv add phzyx-forge
+# pip install phzyx-forge
 
 # Optional batteries
-uv add 'phzyx-auth'    # also: phzyx-forge[auth]
-uv add 'phzyx-cache'   # also: phzyx-forge[cache]
+uv add phzyx-auth    # also: phzyx-forge[auth]
+uv add phzyx-cache   # also: phzyx-forge[cache]
 ```
 
 **0.x contract:** public APIs may still change before 1.0. Pin versions in apps.

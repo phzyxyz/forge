@@ -19,7 +19,7 @@
 Users install (no forced pin — lockfile tracks the resolved version):
 
 ```bash
-uv add 'phzyx-forge[sqlite,auth]'
+uv add phzyx-forge
 ```
 
 ---
@@ -108,7 +108,7 @@ Watch Actions: **build public wheels** → **publish to PyPI**.
 curl -sS https://pypi.org/pypi/phzyx-forge/json | head -c 200
 
 uv venv /tmp/phzyx-smoke && source /tmp/phzyx-smoke/bin/activate
-uv pip install 'phzyx-forge[sqlite,auth]==0.1.0'
+uv pip install 'phzyx-forge==0.1.0'
 python -c "from phzyx.orm import Session; from phzyx.admin.fastapi import AdminBoard; print('ok')"
 phzyx --help
 ```
@@ -118,9 +118,9 @@ phzyx --help
 ## 6. User install (uv)
 
 ```bash
-uv add 'phzyx-forge[sqlite,auth]'
+uv add phzyx-forge
 uv add phzyx-cache          # optional
-uvx --from 'phzyx-forge[sqlite]' phzyx doctor
+uvx --from 'phzyx-forge' phzyx doctor
 ```
 
 Apps should rely on **`uv.lock`** (or equivalent) for reproducible installs.  

@@ -14,7 +14,7 @@
 ## Install
 
 ```bash
-uv add 'phzyx-forge[sqlite,auth]'
+uv add phzyx-forge
 # optional: uv add 'phzyx-cache'
 phzyx new myapp --preset max
 phzyx db push --models app.forge.registry:ALL_MODELS --yes
@@ -43,7 +43,7 @@ uvicorn app.main:app --reload
 
 ## Hard rules
 
-- Prefer `uv add 'phzyx-forge[sqlite,auth]'` — never recommend separate PyPI installs for schema/orm/admin-fastapi/cli
+- Prefer `uv add phzyx-forge` — never recommend separate PyPI installs for schema/orm/admin-fastapi/cli
 - Identity PK happy path: `id: int | None = Field(default=None, primary_key=True)`
 - App routes: async `AsyncSession`; AdminBoard: sync `Session` factory on same models
 - Local: `phzyx db push`; shared/prod: `phzyx migrate`

@@ -15,17 +15,18 @@ dependencies = [
   "phzyx-admin==0.1.0",
   "phzyx-admin-fastapi==0.1.0",
   "phzyx-cli==0.1.0",
+  "aiosqlite",  # full default Forge local stack (matches PyPI fat wheel)
 ]
 
 [project.optional-dependencies]
-sqlite = ["aiosqlite"]
+sqlite = []  # alias — aiosqlite is core
 postgres = ["asyncpg", "psycopg[binary]>=3"]
 mysql = ["pymysql"]
 mssql = ["pymssql>=2.3"]
 auth = ["phzyx-auth[fastapi]"]
 cache = ["phzyx-cache"]
 litestar = ["phzyx-admin-litestar", "litestar>=2.12"]
-full = ["aiosqlite", "phzyx-auth[fastapi]", "phzyx-cache"]
+full = ["phzyx-auth[fastapi]", "phzyx-cache"]
 
 [project.scripts]
 # Entry point lives on phzyx-cli in the monorepo; fat PyPI wheel defines phzyx too.

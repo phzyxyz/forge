@@ -42,7 +42,7 @@ FORGE_README = f"""# phzyx-forge
 ORM, AdminBoard (FastAPI-first), and the `phzyx` CLI.
 
 ```bash
-uv add 'phzyx-forge[sqlite,auth]=={VERSION}'
+uv add phzyx-forge
 ```
 
 ```python
@@ -88,10 +88,12 @@ dependencies = [
   "pydantic>=2",
   "fastapi>=0.115",
   "python-multipart>=0.0.32",
+  "aiosqlite",  # default local stack; postgres/mysql/mssql stay extras
 ]
 
 [project.optional-dependencies]
-sqlite = ["aiosqlite"]
+# [sqlite] kept as no-op alias so old docs still resolve
+sqlite = []
 postgres = ["asyncpg", "psycopg[binary]>=3"]
 mysql = ["pymysql"]
 mssql = ["pymssql>=2.3"]
@@ -99,7 +101,6 @@ auth = ["phzyx-auth[fastapi]>={VERSION},<0.2"]
 cache = ["phzyx-cache>={VERSION},<0.2"]
 litestar = ["litestar>=2.12"]
 full = [
-  "aiosqlite",
   "phzyx-auth[fastapi]>={VERSION},<0.2",
   "phzyx-cache>={VERSION},<0.2",
 ]
@@ -305,7 +306,7 @@ def smoke_install(root: Path, dist: Path, wheel: Path) -> None:
                 "install",
                 "--python",
                 str(py),
-                f"{forge_whl}[sqlite]",
+                str(forge_whl),
             ],
             cwd=root,
         )

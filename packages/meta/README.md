@@ -5,7 +5,7 @@
 Use the product:
 
 ```bash
-uv add 'phzyx-forge[sqlite,auth]'
+uv add phzyx-forge
 ```
 
 Optional batteries: `phzyx-auth`, `phzyx-cache`.

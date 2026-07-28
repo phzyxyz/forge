@@ -1,12 +1,12 @@
 # phzyx-engine
 
-**Not a separate PyPI project** — ships inside **`phzyx-forge`**. Use `uv add 'phzyx-forge[sqlite]'`.
+**Not a separate PyPI project** — ships inside **`phzyx-forge`**. Use `uv add phzyx-forge`.
 
 
 Failsafe schema engine: introspect · diff · push · migrate.
 
 ```bash
-uv add 'phzyx-forge[sqlite]'
+uv add phzyx-forge
 # CLI ships with phzyx-forge
 # optional live MySQL/MariaDB (MariaDB DSN aliases to mysql for now):
 #   uv add pymysql

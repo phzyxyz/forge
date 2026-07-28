@@ -1,6 +1,6 @@
 # phzyx-admin-fastapi
 
-**Not a separate PyPI project** — ships inside **`phzyx-forge`**. Use `uv add 'phzyx-forge[sqlite]'`.
+**Not a separate PyPI project** — ships inside **`phzyx-forge`**. Use `uv add phzyx-forge`.
 
 
 ```python

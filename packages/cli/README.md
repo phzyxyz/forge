@@ -1,6 +1,6 @@
 # phzyx-cli
 
-**Not a separate PyPI project** — ships inside **`phzyx-forge`**. Use `uv add 'phzyx-forge[sqlite]'`.
+**Not a separate PyPI project** — ships inside **`phzyx-forge`**. Use `uv add phzyx-forge`.
 
 
 Phzyx command-line interface: project scaffold, schema push/migrate, doctor.
@@ -10,7 +10,7 @@ Part of [Phzyx Forge](https://phzyx.xyz/forge). Install via `uv add phzyx-forge`
 ## Scaffold a new app (recommended)
 
 ```bash
-uv add phzyx-forge[sqlite,auth]
+uv add phzyx-forge
 phzyx new myapp --preset max
 cd myapp
 uv sync
