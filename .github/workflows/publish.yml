@@ -5,6 +5,11 @@
 # Public packages ONLY (fat forge + batteries):
 #   phzyx-forge · phzyx-auth · phzyx-cache
 # Built by scripts/build_pypi_release.py — never upload split monorepo packages.
+#
+# Each package is uploaded in its own job (fail-fast: false) so a missing
+# pending publisher for auth/cache cannot block phzyx-forge on first release.
+# PyPI allows only one pending publisher per GitHub config at a time — register
+# forge first, publish, then auth, then cache.
 name: Publish
 
 on:
@@ -52,16 +57,22 @@ jobs:
           path: dist/*
 
   publish:
-    name: publish to PyPI
+    name: publish ${{ matrix.package }}
     needs: build
     runs-on: ubuntu-latest
     # Tags only — workflow_dispatch is build/artifact dry-run (no upload).
     if: >-
       github.event_name == 'push' &&
       startsWith(github.ref, 'refs/tags/v')
+    strategy:
+      fail-fast: false
+      # forge first in the matrix list; jobs still run in parallel but each
+      # only uploads its own files so auth cannot steal forge's pending OIDC.
+      matrix:
+        package: [forge, auth, cache]
     environment:
       name: pypi
-      url: https://pypi.org/p/phzyx-forge
+      url: https://pypi.org/p/phzyx-${{ matrix.package }}
     permissions:
       id-token: write
       contents: read
@@ -70,9 +81,26 @@ jobs:
         uses: actions/download-artifact@v4
         with:
           name: python-packages
-          path: dist
+          path: dist-all
 
-      - name: Publish to PyPI
+      - name: Select ${{ matrix.package }} distributions only
+        run: |
+          set -euo pipefail
+          mkdir -p dist
+          # wheel + sdist for this package only (underscore form from hatch)
+          shopt -s nullglob
+          files=(dist-all/phzyx_${{ matrix.package }}-*)
+          if [ ${#files[@]} -eq 0 ]; then
+            echo "No dist files for phzyx-${{ matrix.package }}"
+            ls -la dist-all
+            exit 1
+          fi
+          cp -v "${files[@]}" dist/
+          # drop attestation sidecars if any were copied
+          rm -f dist/*.publish.attestation || true
+          ls -la dist
+
+      - name: Publish phzyx-${{ matrix.package }} to PyPI
         uses: pypa/gh-action-pypi-publish@release/v1
         with:
           packages-dir: dist/
