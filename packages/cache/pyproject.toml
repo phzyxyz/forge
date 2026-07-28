@@ -1,15 +1,24 @@
 [project]
 name = "phzyx-cache"
 version = "0.1.0"
-description = "Phzyx versioned resource cache (memory / Redis)"
+description = "Phzyx versioned resource cache (memory / Redis). Docs: https://phzyx.xyz/forge/cache"
 readme = "README.md"
 requires-python = ">=3.11"
 license = "MIT"
 authors = [{ name = "Athul Nandaswaroop" }]
+keywords = ["phzyx", "cache", "redis", "versioned"]
 dependencies = []
 
 [project.optional-dependencies]
 redis = ["redis>=5"]
+
+[project.urls]
+Homepage = "https://phzyx.xyz"
+Documentation = "https://phzyx.xyz/forge"
+"Cache guide" = "https://phzyx.xyz/forge/cache"
+"Getting started" = "https://phzyx.xyz/forge/getting-started"
+Repository = "https://github.com/phzyxyz/forge"
+Issues = "https://github.com/phzyxyz/forge/issues"
 
 [build-system]
 requires = ["hatchling"]

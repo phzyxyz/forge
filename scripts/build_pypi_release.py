@@ -36,41 +36,19 @@ FORBIDDEN_WHEEL_PREFIXES = (
     "phzyx-",  # sdist name phzyx-0.1.0 — meta only; we check carefully below
 )
 
-FORGE_README = f"""# phzyx-forge
-
-**Forge** — Phzyx data stack in one install: Pydantic schema, failsafe migrations,
-ORM, AdminBoard (FastAPI-first), and the `phzyx` CLI.
-
-```bash
-uv add phzyx-forge
-```
-
-```python
-from phzyx.schema.model import Model
-from phzyx.orm import Session
-from phzyx.admin.fastapi import AdminBoard
-```
-
-Optional batteries (separate packages):
-
-- `phzyx-auth` — identity / sessions / JWT / RBAC (`uv add 'phzyx-forge[auth]'`)
-- `phzyx-cache` — versioned resource cache
-
-Pre-1.0: APIs may change. Pin `=={VERSION}` for apps.
-
-Homepage: https://phzyx.xyz · Source: https://github.com/phzyxyz/forge
-"""
+# Long description for PyPI — keep packaging/pypi/README.phzyx-forge.md as the source of truth.
+FORGE_README_REL = "packaging/pypi/README.phzyx-forge.md"
 
 FORGE_PYPROJECT = f"""\
 [project]
 name = "phzyx-forge"
 version = "{VERSION}"
-description = "Phzyx Forge — schema, failsafe migrations, ORM, AdminBoard, CLI"
+description = "Phzyx Forge — Pydantic schema, failsafe migrations, ORM, AdminBoard, CLI. Docs: https://phzyx.xyz/forge"
 readme = "README.md"
 requires-python = ">=3.11"
 license = "MIT"
 authors = [{{ name = "Athul Nandaswaroop" }}]
-keywords = ["phzyx", "orm", "pydantic", "admin", "migrations", "fastapi"]
+keywords = ["phzyx", "orm", "pydantic", "admin", "migrations", "fastapi", "adminboard"]
 classifiers = [
   "Development Status :: 4 - Beta",
   "Intended Audience :: Developers",
@@ -116,8 +94,13 @@ phzyx = "phzyx.cli:main"
 
 [project.urls]
 Homepage = "https://phzyx.xyz"
-Documentation = "https://phzyx.xyz/docs"
+Documentation = "https://phzyx.xyz/forge"
+"Getting started" = "https://phzyx.xyz/forge/getting-started"
+Quickstart = "https://phzyx.xyz/forge/tutorials/quickstart"
+AdminBoard = "https://phzyx.xyz/products/adminboard"
+Python = "https://phzyx.xyz/python"
 Repository = "https://github.com/phzyxyz/forge"
+Changelog = "https://github.com/phzyxyz/forge/releases"
 Issues = "https://github.com/phzyxyz/forge/issues"
 
 [build-system]
@@ -187,7 +170,19 @@ def stage_fat_forge(root: Path, stage: Path) -> None:
     if len(presets) < 3:
         raise SystemExit(f"CLI presets missing in staged tree: {presets}")
 
-    (stage / "README.md").write_text(FORGE_README, encoding="utf-8")
+    readme_path = root / FORGE_README_REL
+    if not readme_path.is_file():
+        raise SystemExit(f"missing PyPI README: {readme_path}")
+    readme = readme_path.read_text(encoding="utf-8")
+    if "phzyx.xyz/forge" not in readme or "phzyx.xyz" not in readme:
+        raise SystemExit(
+            f"{FORGE_README_REL} must link https://phzyx.xyz and /forge (drive traffic to site)"
+        )
+    if "phzyx.xyz/forge/getting-started" not in readme:
+        raise SystemExit(
+            f"{FORGE_README_REL} must link getting-started (primary post-install landing)"
+        )
+    (stage / "README.md").write_text(readme, encoding="utf-8")
     (stage / "pyproject.toml").write_text(FORGE_PYPROJECT, encoding="utf-8")
 
 

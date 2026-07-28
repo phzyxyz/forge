@@ -1,11 +1,12 @@
 [project]
 name = "phzyx-auth"
 version = "0.1.0"
-description = "Phzyx Auth — secure-by-default identity, sessions, JWT, API keys, RBAC (Forge battery)"
+description = "Phzyx Auth — identity, sessions, JWT, API keys, RBAC. Docs: https://phzyx.xyz/forge/tutorials/auth"
 readme = "README.md"
 requires-python = ">=3.11"
 license = "MIT"
 authors = [{ name = "Athul Nandaswaroop" }]
+keywords = ["phzyx", "auth", "jwt", "rbac", "sessions", "fastapi"]
 dependencies = [
   "phzyx-forge>=0.1.0,<0.2",
   "pydantic>=2",
@@ -26,7 +27,11 @@ phzyx-auth = "phzyx.auth.cli:main"
 
 [project.urls]
 Homepage = "https://phzyx.xyz"
+Documentation = "https://phzyx.xyz/forge"
+"Auth tutorial" = "https://phzyx.xyz/forge/tutorials/auth"
+"Getting started" = "https://phzyx.xyz/forge/getting-started"
 Repository = "https://github.com/phzyxyz/forge"
+Issues = "https://github.com/phzyxyz/forge/issues"
 
 [tool.uv.sources]
 phzyx-forge = { workspace = true }

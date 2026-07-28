@@ -1,35 +1,63 @@
-# phzyx-auth
+# Phzyx Auth
 
-Secure-by-default authentication & authorization for Phzyx apps and AdminBoard.
+Secure-by-default **identity, sessions, JWT, API keys, and RBAC** for Forge apps and AdminBoard.
 
-**Public battery** for Forge (depends on `phzyx-forge` on PyPI).
+This is an **optional battery**. Most apps start with:
+
+```bash
+uv add phzyx-forge
+uv add 'phzyx-forge[auth]'
+# or: uv add phzyx-auth
+```
+
+---
+
+## Full docs live on the website
+
+PyPI is the install surface. Tutorials, production notes, and product context are on **phzyx.xyz**:
+
+| | |
+|--|--|
+| **Auth tutorial** | [https://phzyx.xyz/forge/tutorials/auth](https://phzyx.xyz/forge/tutorials/auth) |
+| **Forge docs** | [https://phzyx.xyz/forge](https://phzyx.xyz/forge) |
+| **Getting started** | [https://phzyx.xyz/forge/getting-started](https://phzyx.xyz/forge/getting-started) |
+| **Product home** | [https://phzyx.xyz](https://phzyx.xyz) |
+| **Source** | [https://github.com/phzyxyz/forge](https://github.com/phzyxyz/forge) |
+
+**After install → open [phzyx.xyz/forge/tutorials/auth](https://phzyx.xyz/forge/tutorials/auth).**
+
+---
+
+## Install
 
 ```bash
 uv add 'phzyx-forge[auth]'
-# or
+# equivalent
 uv add 'phzyx-auth[fastapi]'
 ```
 
-## Status (0.1.0)
+Requires **`phzyx-forge`** (product wheel).
 
-**Phase A + B shipped** (memory backends; ORM-backed stores next):
+---
 
-| Area | What you get |
-|------|----------------|
+## What you get (0.1)
+
+| Area | Capability |
+|------|------------|
 | Passwords | Argon2id, policy min length |
 | Sessions | Opaque cookie sessions (hashed at rest), idle + absolute TTL |
 | JWT | HS256 access + rotating refresh |
 | API keys | `phx_` prefix, scopes, list/revoke |
-| RBAC | Groups/Permissions models, Principal, `ensure_*` + Depends + decorators |
+| RBAC | Groups / permissions, `Principal`, guards |
 | Lockout | Failed-login counter + rate limits + audit log |
 | Reset / change | Forgot/reset (anti-enum), change password, revoke sessions |
-| Email verify | Token issue + verify (`email_verified` flag) |
 | CSRF | Double-submit cookie + `X-CSRF-Token` for session mutations |
-| WebSocket | `websocket_principal` (cookie / Bearer / API key, close 4401) |
-| AdminBoard | `PhzyxAuthz` permission bridge |
+| AdminBoard | Permission bridge for staff UI |
 | CLI | `phzyx-auth create-superuser` |
 
-**Later:** OAuth IdPs (Phase D stub in `oauth.py`), MFA/passkeys (E), orgs (F), Redis rate limit, ORM session store.
+Pre-1.0: APIs may change. Prefer lockfiles.
+
+---
 
 ## Quick start (FastAPI)
 
@@ -54,35 +82,19 @@ async def private(user: Principal = Depends(require_user)):
 ```
 
 ```bash
-# create staff superuser (in-memory unless you wire persistence)
 phzyx-auth create-superuser --email admin@example.com --password 'longpassword1'
 ```
 
-### SPA cookie flow
+Full walkthrough: **[Auth tutorial](https://phzyx.xyz/forge/tutorials/auth)**.
 
-1. `POST /auth/login` → sets `phzyx_session` (HttpOnly) + `phzyx_csrf` + returns `csrf_token`
-2. Mutating requests with the session cookie must send header `X-CSRF-Token: <csrf_token>`
-3. Bearer JWT / `X-API-Key` skip CSRF
+---
 
-### In-body checks (no middleware)
+## Related
 
-```python
-from phzyx.auth.guards import ensure_authenticated, ensure_permissions
+- Product: [phzyx-forge](https://pypi.org/project/phzyx-forge/)  
+- Cache battery: [phzyx-cache](https://pypi.org/project/phzyx-cache/)  
+- Site: [phzyx.xyz](https://phzyx.xyz)
 
-p = svc.resolve_principal(session_token=cookie, authorization=authz, api_key=key)
-user = ensure_authenticated(p)
-ensure_permissions(user, ["posts:create"])
-```
+## License
 
-## Security defaults
-
-- Argon2id hashing  
-- Secrets ≥ 32 bytes (HS256 / pepper)  
-- Opaque sessions + short JWT access  
-- API keys hashed at rest  
-- Lockout + IP/email rate limits  
-- Password reset anti-enumeration  
-- Extensible `AbstractUser`  
-
-**Research (do not re-derive):** [`research/plan/20_phzyx_auth.md`](../../research/plan/20_phzyx_auth.md)  
-**Tracker:** [`PHZYX_ROADMAP.html`](../../PHZYX_ROADMAP.html) track **AUTH**.
+MIT · [phzyx.xyz](https://phzyx.xyz)
