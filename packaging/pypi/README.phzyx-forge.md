@@ -40,23 +40,30 @@ That is the **full library** for local work: schema · engine · ORM · AdminBoa
 **FastAPI is required** for the default AdminBoard path (included as a dependency). Forge is built to **complete the FastAPI-era feature set** — stay on the API stack you chose instead of switching frameworks only for admin/batteries.
 
 ```bash
-# First run (recommended)
+# First run — any OS (macOS / Linux / Windows)
 uv tool install phzyx-forge
-forge new myapp --yes
-cd myapp && uv sync && uv run forge start
+# upgrading an older install?
+uv tool install phzyx-forge --reinstall
+
+forge new myapp --yes            # alias: phzyx new myapp --yes
+cd myapp
+uv sync
+uv run forge start               # alias: uv run phzyx start
 # → http://127.0.0.1:9898  /docs  /admin/
 
-forge --help
-# Greenfield: create folder + scaffold
-forge new myapp --preset max
-# Existing FastAPI app: scaffold in this directory
-forge init --yes --preset max
+# Already inside a uv project? scaffold *here* (no nested folder):
+#   uv add phzyx-forge
+#   uv run forge init --yes
+#   uv run forge start
 ```
+
+**Always use `uv run …` inside a project.** Do not run bare `uvicorn` from Homebrew/global Python.
 
 | CLI | When |
 |-----|------|
+| `forge` / `phzyx` | Same binary (both ship in this wheel) |
 | `forge new NAME` | New project **directory** |
-| `forge start` | Local defaults: `.env`, db push, serve on **:9898** |
+| `forge start` | Dev server **:9898** (prompts if schema/migrations pending) |
 | `forge init` | Scaffold **here** |
 | `forge add auth\|admin` | One wiring file only (not install) |
 

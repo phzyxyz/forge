@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Build the public 0.1.2 PyPI surface: fat phzyx-forge + auth + cache only.
+"""Build the public 0.1.3 PyPI surface: fat phzyx-forge + auth + cache only.
 
 Monorepo keeps split packages for development. This script stages a fat
 phzyx-forge wheel that vendors schema/engine/orm/admin/cli (+ SPA dist).
@@ -9,7 +9,7 @@ Usage (repo root):
   python scripts/build_pypi_release.py --out dist --skip-smoke
 
 Environment:
-  PHZYX_VERSION  override version (default 0.1.2)
+  PHZYX_VERSION  override version (default 0.1.3)
 """
 
 from __future__ import annotations
@@ -23,7 +23,7 @@ import tempfile
 import zipfile
 from pathlib import Path
 
-VERSION = "0.1.2"
+VERSION = "0.1.3"
 PUBLISH_NAMES = ("phzyx-forge", "phzyx-auth", "phzyx-cache")
 FORBIDDEN_WHEEL_PREFIXES = (
     "phzyx_schema",
@@ -67,6 +67,7 @@ dependencies = [
   "fastapi>=0.115",
   "python-multipart>=0.0.32",
   "aiosqlite",  # default local stack; postgres/mysql/mssql stay extras
+  "uvicorn[standard]>=0.30",  # forge start / local dev (any OS)
 ]
 
 [project.optional-dependencies]
@@ -295,13 +296,22 @@ def assert_wheel_contents(dist: Path) -> Path:
     return wheel
 
 
+def _venv_bin(venv: Path) -> Path:
+    """Respect Windows (Scripts) vs POSIX (bin)."""
+    scripts = venv / "Scripts"
+    if scripts.is_dir():
+        return scripts
+    return venv / "bin"
+
+
 def smoke_install(root: Path, dist: Path, wheel: Path) -> None:
     with tempfile.TemporaryDirectory(prefix="phzyx-smoke-") as tmp:
         venv = Path(tmp) / "venv"
         run(["uv", "venv", str(venv)], cwd=root)
-        py = venv / "bin" / "python"
+        bindir = _venv_bin(venv)
+        py = bindir / ("python.exe" if (bindir / "python.exe").is_file() else "python")
         forge_whl = wheel.resolve()
-        # Install forge[sqlite] from local wheel; prefer offline path
+        # Install forge from local wheel
         run(
             [
                 "uv",
@@ -321,13 +331,24 @@ def smoke_install(root: Path, dist: Path, wheel: Path) -> None:
                 "from phzyx.orm.session_sync import Session; "
                 "from phzyx.admin.fastapi import AdminBoard; "
                 "from phzyx.admin.fastapi.board import _spa_static_dir; "
+                "import uvicorn; "
                 "d=_spa_static_dir(); "
                 "assert d is not None and (d/'index.html').is_file(), d; "
-                "print('imports+spa_ok', d)",
+                "print('imports+spa+uvicorn_ok', d)",
             ],
             cwd=root,
         )
-        run([str(venv / "bin" / "phzyx"), "--help"], cwd=root)
+        # Both console scripts must exist (0.1.3+)
+        for cmd in ("forge", "phzyx"):
+            exe = bindir / (f"{cmd}.exe" if sys.platform == "win32" else cmd)
+            if not exe.is_file():
+                # hatch may install without .exe suffix check on posix only
+                alt = bindir / cmd
+                if not alt.is_file():
+                    raise SystemExit(f"smoke: missing console script {cmd} in {bindir}")
+                exe = alt
+            run([str(exe), "--help"], cwd=root)
+            print(f"OK console script: {cmd}")
 
         auth_wheels = sorted(dist.glob("phzyx_auth-*.whl"))
         cache_wheels = sorted(dist.glob("phzyx_cache-*.whl"))

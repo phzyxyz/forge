@@ -9,22 +9,34 @@ import sys
 from pathlib import Path
 from typing import Any
 
-__version__ = "0.1.2"
+__version__ = "0.1.3"
 
 _EPILOG = """\
-first run (uv):
+first run (any OS — macOS / Linux / Windows):
+
   uv tool install phzyx-forge
-  forge new myapp --yes
-  cd myapp && uv sync && uv run forge start
-  # → http://127.0.0.1:9898  (prompts if schema/migrations pending)
+  # already installed an older build?
+  uv tool install phzyx-forge --reinstall
+
+  forge new myapp --yes          # same CLI: phzyx new myapp --yes
+  cd myapp
+  uv sync
+  uv run forge start             # same: uv run phzyx start
+  # → http://127.0.0.1:9898
+
+  # Already in a uv project folder? scaffold here instead of nesting:
+  #   uv add phzyx-forge && uv run forge init --yes && uv run forge start
+
+Do NOT run bare `uvicorn` from Homebrew/global Python — always `uv run …`.
 
 scaffold:
   forge new NAME          create ./NAME then scaffold (greenfield)
   forge init              scaffold in current directory (existing app)
-  forge start             local dev server (:9898); never silent schema apply
+  forge start             local dev server (:9898); prompts if schema pending
   forge add auth|admin    one wiring module only (not a full app)
 
-Pulse is a separate product: uv add phzyx-pulse → pulse worker
+Binaries: forge (preferred) and phzyx (alias) — both call this CLI.
+Pulse is separate: uv add phzyx-pulse → uv run pulse worker
 
 docs: https://phzyx.xyz/forge  ·  beginner: https://phzyx.xyz/forge/beginner
 """
@@ -310,7 +322,9 @@ def _cmd_new(ns: argparse.Namespace) -> int:
         print(f"  cd {ns.name}")
         print("  uv sync")
         print("  uv run forge start")
+        print("  # same CLI: uv run phzyx start")
         print("  # → http://127.0.0.1:9898  /docs  /admin/")
+        print("  # always uv run (project venv) — not bare uvicorn")
     return 0
 
 

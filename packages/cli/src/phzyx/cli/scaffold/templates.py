@@ -152,14 +152,28 @@ def readme(
 
 Scaffolded by **Phzyx Forge** (`forge new` / `forge init`, preset **{preset}**).
 
-## Setup
+CLI binaries: **`forge`** (preferred) and **`phzyx`** (same entrypoint).
+
+## Setup (any OS — macOS, Linux, Windows)
+
+Always use **`uv run`** inside this project so the **project** venv is used
+(not Homebrew / global Python).
 
 ```bash
 uv sync
 uv run forge start
+# same: uv run phzyx start
 # → http://127.0.0.1:9898
-# schema/migrations pending? forge start prompts (never silent apply)
 ```
+
+Do **not**:
+
+```bash
+uvicorn app.main:app          # wrong: global install, missing phzyx
+source .venv/bin/activate     # optional; uv run already uses .venv
+```
+
+Schema/migrations: `forge start` **prompts** before applying (never silent).
 
 {auth_export}## URLs
 
@@ -176,14 +190,14 @@ uv run forge start
 
 ## Security
 
-See [SECURITY.md](./SECURITY.md). Run `phzyx doctor` before production.
+See [SECURITY.md](./SECURITY.md). Run `uv run forge doctor` before production.
 
 ## Growing beyond Item
 
 1. Add `app/catalog/models.py` (or similar)
 2. Append models to `ALL_MODELS` in `app/forge/registry.py`
 3. Add async routes under `app/api/routes/`
-4. `phzyx db push --models app.forge.registry:ALL_MODELS --yes`
+4. `uv run forge db push --models app.forge.registry:ALL_MODELS --yes`
 """
 
 

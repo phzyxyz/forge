@@ -189,18 +189,21 @@ def _post_steps(
     admin: bool,
     fresh: bool,
 ) -> list[str]:
-    """Short first-run path — details live in beginner docs."""
+    """Short first-run path — OS-agnostic (always uv run)."""
     steps: list[str] = []
     if fresh:
         steps.append(f"cd {root.name if root.name else name}")
     steps.extend(
         [
             "uv sync",
+            # Prefer forge; phzyx is the same CLI (alias). Always use uv run in a project.
             "uv run forge start",
+            "# same CLI: uv run phzyx start",
             "# → http://127.0.0.1:9898  /docs  "
             + ("/admin/  " if admin else "")
             + ("/auth/  " if auth else ""),
-            "# schema/migrations: forge start prompts; never silent apply",
+            "# Do NOT run bare 'uvicorn' from Homebrew/global — use uv run (project venv)",
+            "# schema/migrations: start prompts; never silent apply",
         ]
     )
     return steps

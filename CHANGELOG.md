@@ -14,12 +14,20 @@ Monorepo still splits schema/engine/orm/admin/cli for development; those modules
 
 ## [Unreleased]
 
+## [0.1.3] — 2026-07-30
+
+### Fixed
+
+- **First-run breakage for users:** PyPI 0.1.2 only exposed `phzyx`, while docs said `forge` → `command not found`. **0.1.3 ships both `forge` and `phzyx`**.
+- **`uvicorn` missing for `start`:** fat wheel now depends on `uvicorn[standard]`.
+- Scaffold README / post-steps: **always `uv run`** (any OS); warn against bare Homebrew/global `uvicorn`.
+
 ### Added
 
-- **`forge` CLI** (primary): console script `forge` ships with `phzyx-forge`; `phzyx` remains an alias.
-- **`forge start`**: local dev server on **:9898** — ensures `.env`, then **prompts** if schema push or migrations are pending (never silent apply). Flags: `--no-schema`, `--no-migrate`.
-- **`forge init`**: top-level scaffold-in-place (legacy `phzyx forge init` still works).
-- Scaffold post-steps use `uv run forge start`; `forge new` materializes `.env`.
+- **`forge` CLI** (primary) + **`phzyx`** alias (same entrypoint).
+- **`forge start`**: dev server **:9898**; prompts if schema/migrations pending (never silent apply).
+- **`forge init`**: top-level scaffold-in-place.
+
 
 ### Added (prior unreleased)
 
