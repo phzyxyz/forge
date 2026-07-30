@@ -238,8 +238,7 @@ def maybe_handle_schema(
 
     print(render_plan_view(plan))  # type: ignore[arg-type]
     print(
-        "Schema changes are pending. forge start will not apply them "
-        "unless you confirm.",
+        "Schema changes are pending. forge start will not apply them unless you confirm.",
         file=sys.stderr,
     )
     if _prompt_yes_no(
@@ -359,10 +358,7 @@ def start_app(
 
     base = f"http://{host}:{port}"
     print(f"→ {base}  /docs  /admin/")
-    print(
-        f"   uvicorn {app} --host {host} --port {port}"
-        + (" --reload" if reload else "")
-    )
+    print(f"   uvicorn {app} --host {host} --port {port}" + (" --reload" if reload else ""))
 
     cmd = [
         sys.executable,

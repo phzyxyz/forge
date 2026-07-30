@@ -119,11 +119,7 @@ def test_load_models_works_without_installed_package(
     # Simulate entry-point process: no project root / empty-string cwd entry.
     root_s = str(tmp_path.resolve())
     root_resolved = tmp_path.resolve()
-    cleaned = [
-        p
-        for p in sys.path
-        if p not in {"", root_s} and Path(p).resolve() != root_resolved
-    ]
+    cleaned = [p for p in sys.path if p not in {"", root_s} and Path(p).resolve() != root_resolved]
     monkeypatch.setattr(sys, "path", cleaned)
 
     with pytest.raises(ModuleNotFoundError):
@@ -155,11 +151,7 @@ def test_start_schema_preview_loads_app_models(
     # Drop project root from path like a real console-script process.
     root_s = str(tmp_path.resolve())
     root_resolved = tmp_path.resolve()
-    cleaned = [
-        p
-        for p in sys.path
-        if p not in {"", root_s} and Path(p).resolve() != root_resolved
-    ]
+    cleaned = [p for p in sys.path if p not in {"", root_s} and Path(p).resolve() != root_resolved]
     monkeypatch.setattr(sys, "path", cleaned)
     monkeypatch.chdir(tmp_path.parent)  # start_app chdirs to root
 
