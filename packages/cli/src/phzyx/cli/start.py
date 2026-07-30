@@ -9,7 +9,6 @@ import sys
 from pathlib import Path
 from typing import TextIO
 
-
 DEFAULT_HOST = "127.0.0.1"
 DEFAULT_PORT = 9898
 DEFAULT_APP = "app.main:app"
@@ -83,9 +82,8 @@ def _prompt_yes_no(
 
 def preview_schema_plan(*, models: str) -> tuple[object | None, int]:
     """Dry-run schema plan. Returns (plan, exit_code). plan is SchemaPlan or None on error."""
-    from phzyx.engine import connect, load_config, push_schema
-
     from phzyx.cli import _load_models
+    from phzyx.engine import connect, load_config, push_schema
 
     cfg = load_config()
     url = cfg.database_url or os.environ.get("PHZYX_DATABASE_URL")
@@ -119,9 +117,8 @@ def preview_schema_plan(*, models: str) -> tuple[object | None, int]:
 
 def apply_schema_push(*, models: str) -> int:
     """Apply schema push after user already confirmed (yes=True)."""
-    from phzyx.engine import connect, load_config, push_schema
-
     from phzyx.cli import _load_models
+    from phzyx.engine import connect, load_config, push_schema
 
     cfg = load_config()
     url = cfg.database_url or os.environ.get("PHZYX_DATABASE_URL")

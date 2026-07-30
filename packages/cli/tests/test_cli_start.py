@@ -6,8 +6,7 @@ import sys
 from pathlib import Path
 
 import pytest
-
-from phzyx.cli.start import ensure_dotenv, load_dotenv, _prompt_yes_no
+from phzyx.cli.start import _prompt_yes_no, ensure_dotenv, load_dotenv
 
 
 def test_ensure_dotenv_copies_example(tmp_path: Path) -> None:
@@ -119,7 +118,12 @@ def test_load_models_works_without_installed_package(
 
     # Simulate entry-point process: no project root / empty-string cwd entry.
     root_s = str(tmp_path.resolve())
-    cleaned = [p for p in sys.path if p not in {"", root_s} and Path(p).resolve() != tmp_path.resolve()]
+    root_resolved = tmp_path.resolve()
+    cleaned = [
+        p
+        for p in sys.path
+        if p not in {"", root_s} and Path(p).resolve() != root_resolved
+    ]
     monkeypatch.setattr(sys, "path", cleaned)
 
     with pytest.raises(ModuleNotFoundError):
@@ -150,7 +154,12 @@ def test_start_schema_preview_loads_app_models(
 
     # Drop project root from path like a real console-script process.
     root_s = str(tmp_path.resolve())
-    cleaned = [p for p in sys.path if p not in {"", root_s} and Path(p).resolve() != tmp_path.resolve()]
+    root_resolved = tmp_path.resolve()
+    cleaned = [
+        p
+        for p in sys.path
+        if p not in {"", root_s} and Path(p).resolve() != root_resolved
+    ]
     monkeypatch.setattr(sys, "path", cleaned)
     monkeypatch.chdir(tmp_path.parent)  # start_app chdirs to root
 
