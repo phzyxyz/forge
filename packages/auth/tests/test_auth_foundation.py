@@ -37,8 +37,10 @@ def test_argon2_hash_roundtrip() -> None:
 
 @pytest.mark.unit
 def test_password_policy_min_length() -> None:
+    from phzyx.auth.errors import ValidationAuthError
+
     ph = PasswordHasher(min_length=10)
-    with pytest.raises(ValueError, match="at least"):
+    with pytest.raises(ValidationAuthError, match="at least"):
         ph.hash("short")
 
 

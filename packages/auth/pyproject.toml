@@ -1,6 +1,6 @@
 [project]
 name = "phzyx-auth"
-version = "0.1.4"
+version = "0.1.5"
 description = "Phzyx Auth — identity, sessions, JWT, API keys, RBAC. Docs: https://phzyx.xyz/forge/tutorials/auth"
 readme = "README.md"
 requires-python = ">=3.11"

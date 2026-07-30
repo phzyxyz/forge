@@ -14,6 +14,15 @@ Monorepo still splits schema/engine/orm/admin/cli for development; those modules
 
 ## [Unreleased]
 
+## [0.1.5] — 2026-07-30
+
+### Fixed
+
+- **CLI UX:** `forge auth create-superuser` no longer dumps a traceback for short
+  passwords / bad emails. Interactive mode **retries** with `error:` lines;
+  flag mode exits **2** with a clear message + hint. Top-level CLI catches
+  `KeyboardInterrupt` / missing modules instead of raw stack traces.
+
 ## [0.1.4] — 2026-07-30
 
 ### Fixed

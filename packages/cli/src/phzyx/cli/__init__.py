@@ -9,7 +9,7 @@ import sys
 from pathlib import Path
 from typing import Any
 
-__version__ = "0.1.4"
+__version__ = "0.1.5"
 
 _EPILOG = """\
 first run (any OS — macOS / Linux / Windows):
@@ -251,6 +251,34 @@ def main(argv: list[str] | None = None) -> int:
     m_apply.add_argument("--dir", default=None)
 
     ns = parser.parse_args(args)
+    try:
+        return _dispatch(ns, parser)
+    except KeyboardInterrupt:
+        print("\naborted", file=sys.stderr)
+        return 130
+    except SystemExit as exc:
+        # argparse / intentional exits
+        code = exc.code
+        if code is None:
+            return 0
+        if isinstance(code, int):
+            return code
+        print(f"error: {code}", file=sys.stderr)
+        return 2
+    except ModuleNotFoundError as exc:
+        name = getattr(exc, "name", None) or str(exc)
+        print(
+            f"error: cannot import {name!r} — run from the project root after `uv sync` "
+            f"(scaffolds use package=false; app/ is not installed as a package)",
+            file=sys.stderr,
+        )
+        return 2
+    except Exception as exc:  # noqa: BLE001 — last-resort CLI UX; still non-zero
+        print(f"error: {exc}", file=sys.stderr)
+        return 2
+
+
+def _dispatch(ns: argparse.Namespace, parser: argparse.ArgumentParser) -> int:
     if not ns.command:
         parser.print_help()
         return 0
@@ -468,17 +496,22 @@ def _cmd_add(ns: argparse.Namespace) -> int:
 
 def _cmd_auth(ns: argparse.Namespace) -> int:
     try:
-        from phzyx.auth.cli import create_superuser
+        from phzyx.auth.cli import run_create_superuser
     except ImportError:
         print(
-            "error: phzyx-auth not installed (uv add phzyx-auth)",
+            "error: phzyx-auth not installed (uv add 'phzyx-forge[auth]' or phzyx-auth)",
             file=sys.stderr,
         )
         return 2
     if ns.auth_command == "create-superuser":
-        uid = create_superuser(ns.email, ns.password)
-        print(f"Created superuser id={uid}")
-        return 0
+        # Never dump stack traces for password policy / validation / cancel.
+        return run_create_superuser(ns.email, ns.password)
+    if not ns.auth_command:
+        print(
+            "error: missing auth subcommand (try: forge auth create-superuser)",
+            file=sys.stderr,
+        )
+        return 1
     print("error: unknown auth command", file=sys.stderr)
     return 1
 
@@ -689,11 +722,27 @@ def _load_models(spec: str | None) -> list[Any]:
     if not spec:
         return []
     if ":" not in spec:
-        raise SystemExit("models spec must be module:attr")
+        print("error: models spec must be module:attr", file=sys.stderr)
+        raise SystemExit(2)
     ensure_project_on_sys_path()
     mod_name, attr = spec.split(":", 1)
-    mod = importlib.import_module(mod_name)
-    obj = getattr(mod, attr)
+    try:
+        mod = importlib.import_module(mod_name)
+    except ModuleNotFoundError as exc:
+        print(
+            f"error: cannot import models module {mod_name!r} ({exc}). "
+            "Run from the project root after `uv sync`.",
+            file=sys.stderr,
+        )
+        raise SystemExit(2) from None
+    try:
+        obj = getattr(mod, attr)
+    except AttributeError:
+        print(
+            f"error: module {mod_name!r} has no attribute {attr!r}",
+            file=sys.stderr,
+        )
+        raise SystemExit(2) from None
     if isinstance(obj, (list, tuple)):
         return list(obj)
     return [obj]

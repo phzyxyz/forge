@@ -35,7 +35,12 @@ class PasswordHasher:
 
     def validate_policy(self, password: str) -> None:
         if not password or len(password) < self.min_length:
-            raise ValueError(f"password must be at least {self.min_length} characters")
+            from phzyx.auth.errors import ValidationAuthError
+
+            raise ValidationAuthError(
+                f"password must be at least {self.min_length} characters",
+                field="password",
+            )
 
 
 _default = PasswordHasher()

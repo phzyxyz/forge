@@ -44,7 +44,15 @@ def confirm_plan(
         return False
     out.write("Apply this plan? [y/N] ")
     out.flush()
-    answer = inp.readline().strip().lower()
+    try:
+        answer = inp.readline().strip().lower()
+    except (EOFError, KeyboardInterrupt):
+        out.write("\nAborted.\n")
+        out.flush()
+        return False
+    if answer == "" and not getattr(inp, "isatty", lambda: False)():
+        # Non-interactive empty → safe no
+        return False
     return answer in {"y", "yes"}
 
 

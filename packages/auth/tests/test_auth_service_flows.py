@@ -188,6 +188,68 @@ def test_create_superuser_cli(svc: AuthService) -> None:
 
 
 @pytest.mark.unit
+def test_create_superuser_short_password_no_traceback(svc: AuthService) -> None:
+    """Flags path: clean error exit, never ValueError leak to shell."""
+    import io
+
+    from phzyx.auth.cli import run_create_superuser
+
+    err = io.StringIO()
+    code = run_create_superuser(
+        "admin@example.com",
+        "short",
+        service=svc,
+        error_stream=err,
+    )
+    assert code == 2
+    msg = err.getvalue()
+    assert "error:" in msg
+    assert "at least" in msg
+    assert "Traceback" not in msg
+    assert "hint:" in msg
+
+
+@pytest.mark.unit
+def test_create_superuser_interactive_retries_then_ok(svc: AuthService) -> None:
+    """TTY-like interactive: bad email + short password → retry → success."""
+    import io
+
+    from phzyx.auth.cli import run_create_superuser
+
+    # isatty True so create_superuser enters retry loop
+    inp = io.StringIO(
+        "admin\n"  # bad email
+        "admin@example.com\n"  # ok email (prompted after error)
+        # passwords via getpass_fn sequence
+    )
+    inp.isatty = lambda: True  # type: ignore[method-assign]
+
+    passwords = iter(
+        [
+            "short",  # fail policy
+            "goodpassword1",  # ok
+            "goodpassword1",  # confirm
+        ]
+    )
+
+    out = io.StringIO()
+    err = io.StringIO()
+    code = run_create_superuser(
+        service=svc,
+        input_stream=inp,
+        output_stream=out,
+        error_stream=err,
+        getpass_fn=lambda _p: next(passwords),
+    )
+    assert code == 0, err.getvalue()
+    assert "Created superuser" in out.getvalue()
+    assert "email must look like" in err.getvalue()
+    assert "at least" in err.getvalue()
+    assert "Traceback" not in err.getvalue()
+    assert "admin@example.com" in svc.users
+
+
+@pytest.mark.unit
 def test_secret_too_short_rejected() -> None:
     with pytest.raises(ValueError, match="at least 32"):
         AuthConfig(secret="too-short", production=False)
