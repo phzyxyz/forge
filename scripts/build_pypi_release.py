@@ -90,7 +90,9 @@ full = [
 ]
 
 [project.scripts]
+forge = "phzyx.cli:main"
 phzyx = "phzyx.cli:main"
+
 
 [project.urls]
 Homepage = "https://phzyx.xyz"

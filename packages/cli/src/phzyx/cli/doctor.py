@@ -240,8 +240,8 @@ def optional_package_tips() -> list[str]:
             tips.append(f"optional: {install}  # {blurb}")
     tips.append("product line: uv add phzyx-forge  # schema→AdminBoard+cli")
     tips.append("ecosystem:   uv add phzyx         # all published Phzyx products")
-    tips.append("scaffold:    phzyx new NAME | phzyx forge init  # /forge/cli")
-    tips.append("models push: phzyx db push --models app.forge.registry:ALL_MODELS --yes")
+    tips.append("scaffold:    forge new NAME | forge init  # /forge/cli")
+    tips.append("models push: forge db push --models app.forge.registry:ALL_MODELS --yes")
     return tips
 
 

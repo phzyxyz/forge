@@ -1,4 +1,4 @@
-"""Phzyx CLI — ``phzyx`` command-line interface."""
+"""Forge CLI — primary binary ``forge`` (``phzyx`` kept as alias)."""
 
 from __future__ import annotations
 
@@ -6,6 +6,7 @@ import argparse
 import importlib
 import os
 import sys
+from pathlib import Path
 from typing import Any
 
 __version__ = "0.1.2"
@@ -13,30 +14,45 @@ __version__ = "0.1.2"
 _EPILOG = """\
 first run (uv):
   uv tool install phzyx-forge
-  phzyx new myapp --yes
-  cd myapp && uv sync && uv run phzyx start
-  # → http://127.0.0.1:9898
+  forge new myapp --yes
+  cd myapp && uv sync && uv run forge start
+  # → http://127.0.0.1:9898  (prompts if schema/migrations pending)
 
 scaffold:
-  phzyx new NAME          create ./NAME then scaffold (greenfield)
-  phzyx forge init        scaffold in current directory (existing app)
-  phzyx start             .env + local push + server (:9898)
-  phzyx add auth|admin    one wiring module only (not a full app)
+  forge new NAME          create ./NAME then scaffold (greenfield)
+  forge init              scaffold in current directory (existing app)
+  forge start             local dev server (:9898); never silent schema apply
+  forge add auth|admin    one wiring module only (not a full app)
+
+Pulse is a separate product: uv add phzyx-pulse → pulse worker
 
 docs: https://phzyx.xyz/forge  ·  beginner: https://phzyx.xyz/forge/beginner
 """
 
 
+def _cli_prog() -> str:
+    """Prefer ``forge``; keep ``phzyx`` when invoked under that name."""
+    base = Path(sys.argv[0]).name.lower()
+    if base in {"phzyx", "phzyx.exe"}:
+        return "phzyx"
+    return "forge"
+
+
 def main(argv: list[str] | None = None) -> int:
-    """Entry point for the ``phzyx`` console script."""
+    """Entry point for the ``forge`` / ``phzyx`` console scripts."""
     args = list(argv if argv is not None else sys.argv[1:])
+    prog = _cli_prog()
     parser = argparse.ArgumentParser(
-        prog="phzyx",
-        description="Phzyx CLI (ships with phzyx-forge; FastAPI default path)",
+        prog=prog,
+        description="Forge CLI (ships with phzyx-forge; FastAPI default path)",
         epilog=_EPILOG,
         formatter_class=argparse.RawDescriptionHelpFormatter,
     )
-    parser.add_argument("--version", action="version", version=f"phzyx {__version__}")
+    parser.add_argument(
+        "--version",
+        action="version",
+        version=f"forge {__version__}",
+    )
     sub = parser.add_subparsers(dest="command")
 
     db = sub.add_parser("db", help="database schema commands")
@@ -119,41 +135,54 @@ def main(argv: list[str] | None = None) -> int:
     new_p.add_argument("--with-admin", action="store_true")
     new_p.add_argument("--no-admin", action="store_true")
 
-    forge = sub.add_parser("forge", help="Forge helpers (init into existing/empty dir)")
-    forge_sub = forge.add_subparsers(dest="forge_command")
-    fin = forge_sub.add_parser(
+    def _add_init_flags(p: argparse.ArgumentParser) -> None:
+        p.add_argument("--path", default=".", help="project root (default: cwd)")
+        p.add_argument("--name", default=None, help="project name (default: directory name)")
+        p.add_argument(
+            "--preset",
+            default="max",
+            choices=["minimal", "normal", "max", "full"],
+        )
+        p.add_argument(
+            "--layout",
+            default="forge",
+            choices=["forge", "flat", "mvc", "clean", "phzyx-app"],
+        )
+        p.add_argument("--db", default="sqlite", choices=["sqlite", "postgres"])
+        p.add_argument("--force", action="store_true")
+        p.add_argument("--yes", "-y", action="store_true")
+        p.add_argument("--no-input", action="store_true")
+        p.add_argument("--dry-run", action="store_true")
+        p.add_argument("--skip-pyproject", action="store_true")
+        p.add_argument("--skip-main", action="store_true")
+        p.add_argument("--patch-main", action="store_true")
+        p.add_argument("--no-auth", action="store_true")
+        p.add_argument("--no-admin", action="store_true")
+        p.add_argument("--with-docker", action="store_true")
+
+    # Preferred: forge init (top-level). Nested "forge init" kept for phzyx alias.
+    init_p = sub.add_parser(
         "init",
         help="scaffold Forge in --path (default cwd); does not create a parent folder",
     )
-    fin.add_argument("--path", default=".", help="project root (default: cwd)")
-    fin.add_argument("--name", default=None, help="project name (default: directory name)")
-    fin.add_argument(
-        "--preset",
-        default="max",
-        choices=["minimal", "normal", "max", "full"],
+    _add_init_flags(init_p)
+
+    forge = sub.add_parser(
+        "forge",
+        help="(legacy) Forge helpers — prefer: forge init",
     )
-    fin.add_argument(
-        "--layout",
-        default="forge",
-        choices=["forge", "flat", "mvc", "clean", "phzyx-app"],
+    forge_sub = forge.add_subparsers(dest="forge_command")
+    fin = forge_sub.add_parser(
+        "init",
+        help="scaffold Forge in --path (same as top-level init)",
     )
-    fin.add_argument("--db", default="sqlite", choices=["sqlite", "postgres"])
-    fin.add_argument("--force", action="store_true")
-    fin.add_argument("--yes", "-y", action="store_true")
-    fin.add_argument("--no-input", action="store_true")
-    fin.add_argument("--dry-run", action="store_true")
-    fin.add_argument("--skip-pyproject", action="store_true")
-    fin.add_argument("--skip-main", action="store_true")
-    fin.add_argument("--patch-main", action="store_true")
-    fin.add_argument("--no-auth", action="store_true")
-    fin.add_argument("--no-admin", action="store_true")
-    fin.add_argument("--with-docker", action="store_true")
+    _add_init_flags(fin)
 
     sub.add_parser("doctor", help="security and environment checks")
 
     start_p = sub.add_parser(
         "start",
-        help="local defaults: ensure .env, db push (dev), serve on :9898",
+        help="local dev server (:9898); prompts if schema/migrations pending",
     )
     start_p.add_argument("--path", default=".", help="project root (default: cwd)")
     start_p.add_argument("--host", default="127.0.0.1")
@@ -167,10 +196,30 @@ def main(argv: list[str] | None = None) -> int:
     start_p.add_argument(
         "--models",
         default="app.forge.registry:ALL_MODELS",
-        help="models for local db push",
+        help="models for schema plan / optional push",
     )
     start_p.add_argument("--no-reload", action="store_true")
-    start_p.add_argument("--no-push", action="store_true", help="skip local db push")
+    start_p.add_argument(
+        "--no-schema",
+        action="store_true",
+        help="skip schema plan check (never auto-applies either way)",
+    )
+    start_p.add_argument(
+        "--no-migrate",
+        action="store_true",
+        help="skip pending migrations check",
+    )
+    start_p.add_argument(
+        "--migrate-dir",
+        default="migrations",
+        help="migrations directory (default: migrations)",
+    )
+    # Deprecated alias for --no-schema
+    start_p.add_argument(
+        "--no-push",
+        action="store_true",
+        help=argparse.SUPPRESS,
+    )
 
     mig = sub.add_parser("migrate", help="versioned SQL migrations")
     mig_sub = mig.add_subparsers(dest="migrate_command")
@@ -203,6 +252,8 @@ def main(argv: list[str] | None = None) -> int:
         return _cmd_add(ns)
     if ns.command == "new":
         return _cmd_new(ns)
+    if ns.command == "init":
+        return _cmd_init(ns)
     if ns.command == "forge":
         return _cmd_forge(ns)
     if ns.command == "doctor":
@@ -258,40 +309,38 @@ def _cmd_new(ns: argparse.Namespace) -> int:
         print("next:")
         print(f"  cd {ns.name}")
         print("  uv sync")
-        print("  uv run phzyx start")
+        print("  uv run forge start")
         print("  # → http://127.0.0.1:9898  /docs  /admin/")
     return 0
 
 
-def _cmd_forge(ns: argparse.Namespace) -> int:
+def _cmd_init(ns: argparse.Namespace) -> int:
+    """Top-level ``forge init`` (scaffold in place)."""
     from pathlib import Path
 
     from phzyx.cli.forge_init import forge_init
     from phzyx.cli.scaffold.write import ScaffoldError
 
-    if ns.forge_command != "init":
-        print("error: unknown forge command (try: phzyx forge init)", file=sys.stderr)
-        return 1
     auth = False if ns.no_auth else None
     admin = False if ns.no_admin else None
-    docker = True if ns.with_docker else None
+    docker = True if getattr(ns, "with_docker", False) else None
     try:
         paths, post, warnings = forge_init(
-            Path(ns.path),
+            path=Path(ns.path),
             name=ns.name,
             preset=ns.preset,
             layout=ns.layout,
+            force=bool(ns.force),
+            dry_run=bool(ns.dry_run),
+            yes=bool(ns.yes),
+            no_input=bool(ns.no_input),
             db=ns.db,
             auth=auth,
             admin=admin,
             docker=docker,
-            force=bool(ns.force),
-            yes=bool(ns.yes),
-            no_input=bool(ns.no_input),
-            dry_run=bool(ns.dry_run),
-            skip_pyproject=bool(ns.skip_pyproject),
-            skip_main=bool(ns.skip_main),
-            patch_main=bool(ns.patch_main),
+            skip_pyproject=bool(getattr(ns, "skip_pyproject", False)),
+            skip_main=bool(getattr(ns, "skip_main", False)),
+            patch_main=bool(getattr(ns, "patch_main", False)),
         )
     except (FileExistsError, ValueError, KeyError, ScaffoldError, NotADirectoryError) as exc:
         print(f"error: {exc}", file=sys.stderr)
@@ -308,6 +357,14 @@ def _cmd_forge(ns: argparse.Namespace) -> int:
     return 0
 
 
+def _cmd_forge(ns: argparse.Namespace) -> int:
+    """Legacy ``phzyx forge init`` / ``forge forge init``."""
+    if getattr(ns, "forge_command", None) != "init":
+        print("error: unknown forge command (try: forge init)", file=sys.stderr)
+        return 1
+    return _cmd_init(ns)
+
+
 def _cmd_doctor() -> int:
     from phzyx.cli.doctor import doctor_exit_code, format_results, run_doctor
 
@@ -321,6 +378,7 @@ def _cmd_start(ns: argparse.Namespace) -> int:
 
     from phzyx.cli.start import start_app
 
+    check_schema = not (bool(ns.no_schema) or bool(ns.no_push))
     return start_app(
         root=Path(ns.path),
         host=ns.host,
@@ -328,7 +386,9 @@ def _cmd_start(ns: argparse.Namespace) -> int:
         app=ns.app,
         models=ns.models,
         reload=not bool(ns.no_reload),
-        push=not bool(ns.no_push),
+        check_schema=check_schema,
+        check_migrate=not bool(ns.no_migrate),
+        migrate_dir=str(ns.migrate_dir),
     )
 
 

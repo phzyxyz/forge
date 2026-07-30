@@ -105,7 +105,7 @@ def new_project(
         _plan, paths = build_and_apply(root, opts)
     except ScaffoldError:
         raise
-    # First-run default: materialize .env so `phzyx start` needs no manual cp
+    # First-run default: materialize .env so `forge start` needs no manual cp
     if not dry_run and (yes or force or no_input):
         from phzyx.cli.start import write_env_if_missing
 

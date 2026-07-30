@@ -1,7 +1,7 @@
 [project]
 name = "phzyx-cli"
 version = "0.1.2"
-description = "Phzyx CLI — phzyx command-line interface"
+description = "Forge CLI — forge command (phzyx alias)"
 readme = "README.md"
 requires-python = ">=3.11"
 license = "MIT"
@@ -13,7 +13,9 @@ dependencies = [
 ]
 
 [project.scripts]
+forge = "phzyx.cli:main"
 phzyx = "phzyx.cli:main"
+
 
 [tool.uv.sources]
 phzyx-schema = { workspace = true }

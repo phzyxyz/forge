@@ -16,8 +16,10 @@ Monorepo still splits schema/engine/orm/admin/cli for development; those modules
 
 ### Added
 
-- **`phzyx start`**: local defaults — ensure `.env`, dev `db push`, serve on **:9898** (unique port). Scaffold post-steps slimmed; `phzyx new` materializes `.env`.
-- **Docs first-run**: beginner path on site (`/forge/beginner`, `/pulse/beginner`); Level Beginner|Expert.
+- **`forge` CLI** (primary): console script `forge` ships with `phzyx-forge`; `phzyx` remains an alias.
+- **`forge start`**: local dev server on **:9898** — ensures `.env`, then **prompts** if schema push or migrations are pending (never silent apply). Flags: `--no-schema`, `--no-migrate`.
+- **`forge init`**: top-level scaffold-in-place (legacy `phzyx forge init` still works).
+- Scaffold post-steps use `uv run forge start`; `forge new` materializes `.env`.
 
 ### Added (prior unreleased)
 

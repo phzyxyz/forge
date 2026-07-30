@@ -150,14 +150,15 @@ def readme(
     return f"""\
 # {name}
 
-Scaffolded by **Phzyx Forge** (`phzyx new` / `phzyx forge init`, preset **{preset}**).
+Scaffolded by **Phzyx Forge** (`forge new` / `forge init`, preset **{preset}**).
 
 ## Setup
 
 ```bash
 uv sync
-uv run phzyx start
+uv run forge start
 # → http://127.0.0.1:9898
+# schema/migrations pending? forge start prompts (never silent apply)
 ```
 
 {auth_export}## URLs
@@ -768,7 +769,7 @@ def admin_md() -> str:
 Mounted at `/admin/` via `app.forge.admin.mount_admin`.
 
 ```bash
-uv run phzyx start
+uv run forge start
 # open http://127.0.0.1:9898/admin/
 ```
 

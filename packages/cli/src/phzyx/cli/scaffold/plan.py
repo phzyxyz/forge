@@ -196,10 +196,11 @@ def _post_steps(
     steps.extend(
         [
             "uv sync",
-            "uv run phzyx start",
+            "uv run forge start",
             "# → http://127.0.0.1:9898  /docs  "
             + ("/admin/  " if admin else "")
             + ("/auth/  " if auth else ""),
+            "# schema/migrations: forge start prompts; never silent apply",
         ]
     )
     return steps

@@ -42,23 +42,23 @@ That is the **full library** for local work: schema · engine · ORM · AdminBoa
 ```bash
 # First run (recommended)
 uv tool install phzyx-forge
-phzyx new myapp --yes
-cd myapp && uv sync && uv run phzyx start
+forge new myapp --yes
+cd myapp && uv sync && uv run forge start
 # → http://127.0.0.1:9898  /docs  /admin/
 
-phzyx --help
+forge --help
 # Greenfield: create folder + scaffold
-phzyx new myapp --preset max
+forge new myapp --preset max
 # Existing FastAPI app: scaffold in this directory
-phzyx forge init --yes --preset max
+forge init --yes --preset max
 ```
 
 | CLI | When |
 |-----|------|
-| `phzyx new NAME` | New project **directory** |
-| `phzyx start` | Local defaults: `.env`, db push, serve on **:9898** |
-| `phzyx forge init` | Scaffold **here** |
-| `phzyx add auth\|admin` | One wiring file only (not install) |
+| `forge new NAME` | New project **directory** |
+| `forge start` | Local defaults: `.env`, db push, serve on **:9898** |
+| `forge init` | Scaffold **here** |
+| `forge add auth\|admin` | One wiring file only (not install) |
 
 Full CLI docs: [phzyx.xyz/forge/cli](https://phzyx.xyz/forge/cli).
 
