@@ -142,16 +142,14 @@ class AuthService:
     ) -> Principal:
         from phzyx.auth.policy import validate_email, validate_username
 
-        # Superusers always reject placeholders; normal register follows hasher flag.
-        strict = (
-            True
-            if is_superuser or is_staff
-            else (
-                self.config.password.reject_placeholders
-                if reject_placeholders is None
-                else reject_placeholders
-            )
-        )
+        # Explicit reject_placeholders wins (demos/tests). Else superuser/staff
+        # default to strict; normal register follows the hasher flag.
+        if reject_placeholders is not None:
+            strict = reject_placeholders
+        elif is_superuser or is_staff:
+            strict = True
+        else:
+            strict = self.config.password.reject_placeholders
         email_n = validate_email(email, reject_placeholders=strict)
         username_n = validate_username(
             username,

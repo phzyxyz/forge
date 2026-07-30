@@ -397,7 +397,8 @@ def _load_all(session: Session) -> None:
     _add_rows(session, auth_models.Permission, auth["permissions"])
     # SPA login uses PHZYX_ADMIN_USER (default "admin") as identity email key
     now = datetime(2026, 7, 1, 12, 0, 0)
-    demo_hash = PasswordHasher(min_length=5).hash("phzyx")
+    # Demo-only: short password; never use reject_placeholders=False in production apps.
+    demo_hash = PasswordHasher(min_length=5, reject_placeholders=False).hash("phzyx")
     for i, email, uname, staff, superu in (
         (1, "admin", "admin", True, True),
         (2, "editor@phzyx.xyz", "editor", True, False),
@@ -449,7 +450,7 @@ def build_auth_service(session_factory) -> AuthService:  # type: ignore[no-untyp
         production=False,
         cookie_secure=False,
         csrf_protect=True,
-        password=PasswordHasher(min_length=5),  # allow demo password "phzyx"
+        password=PasswordHasher(min_length=5, reject_placeholders=False),
     )
     repo = OrmUserRepository(session_factory=session_factory)
     svc = AuthService(
@@ -461,7 +462,14 @@ def build_auth_service(session_factory) -> AuthService:  # type: ignore[no-untyp
     )
     email = user.strip().lower()
     if email not in svc.users:
-        svc.register(email, password, is_staff=True, is_superuser=True)
+        # Local demo seed only — placeholder policy intentionally disabled.
+        svc.register(
+            email,
+            password,
+            is_staff=True,
+            is_superuser=True,
+            reject_placeholders=False,
+        )
     return svc
 
 
