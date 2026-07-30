@@ -105,4 +105,11 @@ def new_project(
         _plan, paths = build_and_apply(root, opts)
     except ScaffoldError:
         raise
+    # First-run default: materialize .env so `phzyx start` needs no manual cp
+    if not dry_run and (yes or force or no_input):
+        from phzyx.cli.start import write_env_if_missing
+
+        env_path = write_env_if_missing(root)
+        if env_path is not None:
+            paths = [*paths, env_path]
     return paths

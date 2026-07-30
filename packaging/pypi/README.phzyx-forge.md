@@ -14,6 +14,7 @@ PyPI is only the install surface. **Full guides, tutorials, performance story, a
 |--|--|
 | **Product home** | [https://phzyx.xyz](https://phzyx.xyz) |
 | **Docs (Forge)** | [https://phzyx.xyz/forge](https://phzyx.xyz/forge) |
+| **Beginner (first run)** | [https://phzyx.xyz/forge/beginner](https://phzyx.xyz/forge/beginner) |
 | **Getting started** | [https://phzyx.xyz/forge/getting-started](https://phzyx.xyz/forge/getting-started) |
 | **Quickstart tutorial** | [https://phzyx.xyz/forge/tutorials/quickstart](https://phzyx.xyz/forge/tutorials/quickstart) |
 | **AdminBoard** | [https://phzyx.xyz/products/adminboard](https://phzyx.xyz/products/adminboard) |
@@ -22,7 +23,7 @@ PyPI is only the install surface. **Full guides, tutorials, performance story, a
 | **Source** | [https://github.com/phzyxyz/forge](https://github.com/phzyxyz/forge) |
 | **Issues** | [https://github.com/phzyxyz/forge/issues](https://github.com/phzyxyz/forge/issues) |
 
-**If you only open one page after install → [phzyx.xyz/forge/getting-started](https://phzyx.xyz/forge/getting-started).**
+**If you only open one page after install → [phzyx.xyz/forge/beginner](https://phzyx.xyz/forge/beginner).**
 
 ---
 
@@ -34,11 +35,17 @@ uv add phzyx-forge
 pip install phzyx-forge
 ```
 
-That is the **full product** for local work: schema · engine · ORM · AdminBoard (**FastAPI** + SPA) · CLI · **SQLite** (`aiosqlite` included).
+That is the **full library** for local work: schema · engine · ORM · AdminBoard (**FastAPI** + SPA) · CLI · **SQLite** (`aiosqlite` included).
 
 **FastAPI is required** for the default AdminBoard path (included as a dependency). Forge is built to **complete the FastAPI-era feature set** — stay on the API stack you chose instead of switching frameworks only for admin/batteries.
 
 ```bash
+# First run (recommended)
+uv tool install phzyx-forge
+phzyx new myapp --yes
+cd myapp && uv sync && uv run phzyx start
+# → http://127.0.0.1:9898  /docs  /admin/
+
 phzyx --help
 # Greenfield: create folder + scaffold
 phzyx new myapp --preset max
@@ -49,6 +56,7 @@ phzyx forge init --yes --preset max
 | CLI | When |
 |-----|------|
 | `phzyx new NAME` | New project **directory** |
+| `phzyx start` | Local defaults: `.env`, db push, serve on **:9898** |
 | `phzyx forge init` | Scaffold **here** |
 | `phzyx add auth\|admin` | One wiring file only (not install) |
 

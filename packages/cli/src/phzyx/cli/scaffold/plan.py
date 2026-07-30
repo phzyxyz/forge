@@ -189,29 +189,17 @@ def _post_steps(
     admin: bool,
     fresh: bool,
 ) -> list[str]:
-    steps = []
+    """Short first-run path — details live in beginner docs."""
+    steps: list[str] = []
     if fresh:
         steps.append(f"cd {root.name if root.name else name}")
     steps.extend(
         [
             "uv sync",
-            "cp .env.example .env   # edit secrets",
-        ]
-    )
-    if auth:
-        steps.append(
-            "export PHZYX_AUTH_SECRET=\"$(python -c 'import secrets; "
-            "print(secrets.token_urlsafe(32))')\""
-        )
-    steps.extend(
-        [
-            "uv run phzyx db push --models app.forge.registry:ALL_MODELS --yes",
-            "uv run uvicorn app.main:app --reload",
-            "# open /api/v1/health  /docs  "
+            "uv run phzyx start",
+            "# → http://127.0.0.1:9898  /docs  "
             + ("/admin/  " if admin else "")
             + ("/auth/  " if auth else ""),
-            "uv run pytest",
-            "phzyx doctor",
         ]
     )
     return steps

@@ -3,7 +3,7 @@
 from phzyx.cache.backends import MemoryCache, RedisCache
 from phzyx.cache.resource import ResourceCache
 
-__version__ = "0.1.1"
+__version__ = "0.1.2"
 
 __all__ = [
     "MemoryCache",

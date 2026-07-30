@@ -1,6 +1,6 @@
 [project]
 name = "phzyx-cache"
-version = "0.1.1"
+version = "0.1.2"
 description = "Phzyx versioned resource cache (memory / Redis). Docs: https://phzyx.xyz/forge/cache"
 readme = "README.md"
 requires-python = ">=3.11"

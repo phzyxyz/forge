@@ -8,15 +8,22 @@ import os
 import sys
 from typing import Any
 
-__version__ = "0.1.1"
+__version__ = "0.1.2"
 
 _EPILOG = """\
-scaffold choices:
+first run (uv):
+  uv tool install phzyx-forge
+  phzyx new myapp --yes
+  cd myapp && uv sync && uv run phzyx start
+  # → http://127.0.0.1:9898
+
+scaffold:
   phzyx new NAME          create ./NAME then scaffold (greenfield)
   phzyx forge init        scaffold in current directory (existing app)
+  phzyx start             .env + local push + server (:9898)
   phzyx add auth|admin    one wiring module only (not a full app)
 
-docs: https://phzyx.xyz/forge/cli  ·  getting started: https://phzyx.xyz/forge/getting-started
+docs: https://phzyx.xyz/forge  ·  beginner: https://phzyx.xyz/forge/beginner
 """
 
 
@@ -144,6 +151,27 @@ def main(argv: list[str] | None = None) -> int:
 
     sub.add_parser("doctor", help="security and environment checks")
 
+    start_p = sub.add_parser(
+        "start",
+        help="local defaults: ensure .env, db push (dev), serve on :9898",
+    )
+    start_p.add_argument("--path", default=".", help="project root (default: cwd)")
+    start_p.add_argument("--host", default="127.0.0.1")
+    start_p.add_argument(
+        "--port",
+        type=int,
+        default=9898,
+        help="HTTP port (default: 9898)",
+    )
+    start_p.add_argument("--app", default="app.main:app", help="uvicorn app path")
+    start_p.add_argument(
+        "--models",
+        default="app.forge.registry:ALL_MODELS",
+        help="models for local db push",
+    )
+    start_p.add_argument("--no-reload", action="store_true")
+    start_p.add_argument("--no-push", action="store_true", help="skip local db push")
+
     mig = sub.add_parser("migrate", help="versioned SQL migrations")
     mig_sub = mig.add_subparsers(dest="migrate_command")
 
@@ -179,6 +207,8 @@ def main(argv: list[str] | None = None) -> int:
         return _cmd_forge(ns)
     if ns.command == "doctor":
         return _cmd_doctor()
+    if ns.command == "start":
+        return _cmd_start(ns)
     parser.print_help()
     return 1
 
@@ -225,11 +255,11 @@ def _cmd_new(ns: argparse.Namespace) -> int:
     for p in paths:
         print(f"{verb} {p}")
     if not ns.dry_run:
-        print(f"next: cd {ns.name} && uv sync")
-        print("      cp .env.example .env")
-        print("      uv run phzyx db push --models app.forge.registry:ALL_MODELS --yes")
-        print("      uv run uvicorn app.main:app --reload")
-        print("      phzyx doctor")
+        print("next:")
+        print(f"  cd {ns.name}")
+        print("  uv sync")
+        print("  uv run phzyx start")
+        print("  # → http://127.0.0.1:9898  /docs  /admin/")
     return 0
 
 
@@ -284,6 +314,22 @@ def _cmd_doctor() -> int:
     results = run_doctor()
     print(format_results(results))
     return doctor_exit_code(results)
+
+
+def _cmd_start(ns: argparse.Namespace) -> int:
+    from pathlib import Path
+
+    from phzyx.cli.start import start_app
+
+    return start_app(
+        root=Path(ns.path),
+        host=ns.host,
+        port=int(ns.port),
+        app=ns.app,
+        models=ns.models,
+        reload=not bool(ns.no_reload),
+        push=not bool(ns.no_push),
+    )
 
 
 def _cmd_add(ns: argparse.Namespace) -> int:

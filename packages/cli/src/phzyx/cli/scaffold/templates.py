@@ -145,8 +145,8 @@ def readme(
             "export PHZYX_AUTH_SECRET=\"$(python -c 'import secrets; "
             "print(secrets.token_urlsafe(32))')\"\n"
         )
-    admin_line = "- AdminBoard: http://127.0.0.1:8000/admin/\n" if admin else ""
-    auth_line = "- Auth: http://127.0.0.1:8000/auth/ (see AUTH.md)\n" if auth else ""
+    admin_line = "- AdminBoard: http://127.0.0.1:9898/admin/\n" if admin else ""
+    auth_line = "- Auth: http://127.0.0.1:9898/auth/ (see AUTH.md)\n" if auth else ""
     return f"""\
 # {name}
 
@@ -156,16 +156,15 @@ Scaffolded by **Phzyx Forge** (`phzyx new` / `phzyx forge init`, preset **{prese
 
 ```bash
 uv sync
-cp .env.example .env
-{auth_export}uv run phzyx db push --models app.forge.registry:ALL_MODELS --yes
-uv run uvicorn app.main:app --reload
+uv run phzyx start
+# → http://127.0.0.1:9898
 ```
 
-## URLs
+{auth_export}## URLs
 
-- API health: http://127.0.0.1:8000/api/v1/health
-- OpenAPI: http://127.0.0.1:8000/docs
-- Items API: http://127.0.0.1:8000/api/v1/items
+- API health: http://127.0.0.1:9898/api/v1/health
+- OpenAPI: http://127.0.0.1:9898/docs
+- Items API: http://127.0.0.1:9898/api/v1/items
 {admin_line}{auth_line}
 ## Layout
 
@@ -197,9 +196,9 @@ services:
       - .:/app
     command: >
       sh -c "pip install uv && uv sync &&
-      uv run uvicorn app.main:app --host 0.0.0.0 --port 8000"
+      uv run uvicorn app.main:app --host 0.0.0.0 --port 9898"
     ports:
-      - "8000:8000"
+      - "9898:9898"
     environment:
       PHZYX_DATABASE_URL: sqlite:////app/dev.db
       ASYNC_DATABASE_URL: sqlite+aiosqlite:////app/dev.db
@@ -769,8 +768,8 @@ def admin_md() -> str:
 Mounted at `/admin/` via `app.forge.admin.mount_admin`.
 
 ```bash
-uv run uvicorn app.main:app --reload
-# open http://127.0.0.1:8000/admin/
+uv run phzyx start
+# open http://127.0.0.1:9898/admin/
 ```
 
 Models come from `app.forge.registry.ALL_MODELS`.
