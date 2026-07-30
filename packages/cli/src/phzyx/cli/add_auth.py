@@ -101,7 +101,7 @@ Push auth tables with your models:
 
 ```bash
 phzyx db push --models path.to.auth:AUTH_MODELS --yes
-phzyx auth create-superuser --email admin@example.com --password 'long-enough-secret'
+phzyx auth create-superuser --email you@yourdomain.com --password 'use-a-long-unique-secret'
 ```
 
 ## FastAPI

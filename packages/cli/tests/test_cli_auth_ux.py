@@ -11,7 +11,7 @@ def test_auth_create_superuser_short_password_exit_clean(capsys) -> None:
             "auth",
             "create-superuser",
             "--email",
-            "admin@example.com",
+            "admin@phzyx.xyz",
             "--password",
             "short",
         ]
@@ -39,6 +39,43 @@ def test_auth_create_superuser_bad_email_exit_clean(capsys) -> None:
     err = capsys.readouterr().err
     assert "error:" in err
     assert "email" in err.lower()
+    assert "Traceback" not in err
+
+
+def test_auth_create_superuser_placeholder_email(capsys) -> None:
+    code = main(
+        [
+            "auth",
+            "create-superuser",
+            "--email",
+            "admin@example.com",
+            "--password",
+            "a-real-long-password-99",
+        ]
+    )
+    assert code == 2
+    err = capsys.readouterr().err
+    assert "error:" in err
+    assert "Traceback" not in err
+
+
+def test_auth_create_superuser_placeholder_username(capsys) -> None:
+    code = main(
+        [
+            "auth",
+            "create-superuser",
+            "--email",
+            "real@phzyx.xyz",
+            "--password",
+            "a-real-long-password-99",
+            "--username",
+            "admin",
+        ]
+    )
+    assert code == 2
+    err = capsys.readouterr().err
+    assert "error:" in err
+    assert "username" in err.lower() or "placeholder" in err.lower()
     assert "Traceback" not in err
 
 

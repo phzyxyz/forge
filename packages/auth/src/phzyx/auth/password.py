@@ -16,9 +16,17 @@ class PasswordHasher:
     """Configurable Argon2id hasher (inject for tests)."""
 
     min_length: int = 10
+    # Reject common / placeholder passwords (disable only in unit tests).
+    reject_placeholders: bool = True
 
-    def hash(self, password: str) -> str:
-        self.validate_policy(password)
+    def hash(
+        self,
+        password: str,
+        *,
+        email: str | None = None,
+        username: str | None = None,
+    ) -> str:
+        self.validate_policy(password, email=email, username=username)
         return _HASHER.hash(password)
 
     def verify(self, password_hash: str, password: str) -> bool:
@@ -33,14 +41,22 @@ class PasswordHasher:
         except Exception:
             return True
 
-    def validate_policy(self, password: str) -> None:
-        if not password or len(password) < self.min_length:
-            from phzyx.auth.errors import ValidationAuthError
+    def validate_policy(
+        self,
+        password: str,
+        *,
+        email: str | None = None,
+        username: str | None = None,
+    ) -> None:
+        from phzyx.auth.policy import validate_password_value
 
-            raise ValidationAuthError(
-                f"password must be at least {self.min_length} characters",
-                field="password",
-            )
+        validate_password_value(
+            password,
+            min_length=self.min_length,
+            email=email,
+            username=username,
+            reject_placeholders=self.reject_placeholders,
+        )
 
 
 _default = PasswordHasher()

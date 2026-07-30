@@ -137,17 +137,46 @@ class AuthService:
         is_staff: bool = False,
         is_superuser: bool = False,
         user_id: int | None = None,
+        reject_placeholders: bool | None = None,
+        username_soft: bool = False,
     ) -> Principal:
-        email_n = email.strip().lower()
+        from phzyx.auth.policy import validate_email, validate_username
+
+        # Superusers always reject placeholders; normal register follows hasher flag.
+        strict = (
+            True
+            if is_superuser or is_staff
+            else (
+                self.config.password.reject_placeholders
+                if reject_placeholders is None
+                else reject_placeholders
+            )
+        )
+        email_n = validate_email(email, reject_placeholders=strict)
+        username_n = validate_username(
+            username,
+            reject_placeholders=strict,
+            soft=username_soft,
+        )
         if email_n in self.users:
             raise ValidationAuthError("email already registered", field="email")
         uid = user_id if user_id is not None else self._next_id()
         model = self.config.user_model
+        # Temporarily honor strict flag for this hash even if hasher is lax in tests.
+        hasher = self.config.password
+        if strict and not hasher.reject_placeholders:
+            from dataclasses import replace
+
+            hasher = replace(hasher, reject_placeholders=True)
         user = model(
             id=uid,
             email=email_n,
-            username=username,
-            password_hash=self.config.password.hash(password),
+            username=username_n,
+            password_hash=hasher.hash(
+                password,
+                email=email_n,
+                username=username_n,
+            ),
             is_staff=is_staff,
             is_superuser=is_superuser,
             is_active=True,
@@ -580,11 +609,13 @@ class AuthService:
                     "OAuth account has no email and no existing link",
                     field="email",
                 )
-            # create user without password
+            # create user without password (provider-trusted email; soft username)
             principal = self.register(
                 email,
                 generate_token(24) + "Aa1!",  # satisfies policy; never used for oauth-only
                 username=profile.get("name"),
+                reject_placeholders=False,
+                username_soft=True,
             )
             user = self.users[email]
             # clear password so password login does not work unless set later

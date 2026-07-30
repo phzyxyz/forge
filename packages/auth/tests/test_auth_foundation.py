@@ -45,6 +45,27 @@ def test_password_policy_min_length() -> None:
 
 
 @pytest.mark.unit
+def test_password_policy_rejects_placeholders() -> None:
+    from phzyx.auth.errors import ValidationAuthError
+    from phzyx.auth.policy import validate_email, validate_username
+
+    ph = PasswordHasher(min_length=10)
+    with pytest.raises(ValidationAuthError, match="common|placeholder"):
+        ph.hash("password123")
+    with pytest.raises(ValidationAuthError, match="email"):
+        ph.hash("ops@phzyx.xyz", email="ops@phzyx.xyz")
+    with pytest.raises(ValidationAuthError, match="email"):
+        ph.hash("opsopsopsop", email="opsopsopsop@phzyx.xyz")  # password == local
+    with pytest.raises(ValidationAuthError):
+        validate_email("admin@example.com")
+    with pytest.raises(ValidationAuthError):
+        validate_username("admin")
+    assert validate_email("ops@phzyx.xyz") == "ops@phzyx.xyz"
+    assert validate_username("athul.dev") == "athul.dev"
+    assert ph.hash("a-real-long-password-99").startswith("$argon2")
+
+
+@pytest.mark.unit
 def test_principal_permissions_and_scopes() -> None:
     p = Principal(
         id="1",

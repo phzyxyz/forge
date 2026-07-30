@@ -4,7 +4,6 @@ from __future__ import annotations
 
 import argparse
 import getpass
-import re
 import sys
 from collections.abc import Callable
 from typing import TextIO
@@ -12,10 +11,8 @@ from typing import TextIO
 from phzyx.auth.config import AuthConfig
 from phzyx.auth.errors import AuthError, ValidationAuthError
 from phzyx.auth.password import PasswordHasher
+from phzyx.auth.policy import validate_email, validate_password_value, validate_username
 from phzyx.auth.service import AuthService
-
-# Loose check: avoid dumping stack traces for "admin" without @domain.
-_EMAIL_RE = re.compile(r"^[^@\s]+@[^@\s]+\.[^@\s]+$")
 
 
 class AuthCliError(Exception):
@@ -27,29 +24,27 @@ class AuthCliError(Exception):
         self.exit_code = exit_code
 
 
-def validate_email(email: str) -> str:
-    """Normalize and validate email for superuser creation."""
-    value = (email or "").strip().lower()
-    if not value:
-        raise ValidationAuthError("email is required", field="email")
-    if not _EMAIL_RE.match(value):
-        raise ValidationAuthError(
-            "email must look like user@example.com",
-            field="email",
-        )
-    return value
-
-
-def validate_password(password: str, *, hasher: PasswordHasher | None = None) -> str:
-    """Validate password policy (same rules as AuthService.register)."""
+def validate_password(
+    password: str,
+    *,
+    hasher: PasswordHasher | None = None,
+    email: str | None = None,
+    username: str | None = None,
+) -> str:
+    """Validate password policy (length, placeholders, not equal to identity)."""
     ph = hasher or PasswordHasher()
     try:
-        ph.validate_policy(password)
+        return validate_password_value(
+            password,
+            min_length=ph.min_length,
+            email=email,
+            username=username,
+            reject_placeholders=ph.reject_placeholders,
+        )
     except AuthError:
         raise
     except ValueError as exc:
         raise ValidationAuthError(str(exc), field="password") from exc
-    return password
 
 
 def _is_interactive(stream: TextIO) -> bool:
@@ -95,6 +90,7 @@ def create_superuser(
     email: str | None = None,
     password: str | None = None,
     *,
+    username: str | None = None,
     service: AuthService | None = None,
     input_stream: TextIO | None = None,
     output_stream: TextIO | None = None,
@@ -102,29 +98,58 @@ def create_superuser(
     getpass_fn: Callable[[str], str] | None = None,
     max_attempts: int = 5,
     confirm_password: bool = True,
+    prompt_username: bool = False,
 ) -> str:
     """Register a staff+superuser. Returns user id.
 
     Interactive (TTY and no flags): re-prompts on validation errors instead of
-    dumping a traceback.
-
-    Non-interactive (``--email`` / ``--password`` or non-TTY): single attempt;
-    re-raises ``AuthError`` / ``ValueError`` for callers to map to exit codes.
+    dumping a traceback. Rejects placeholder emails/usernames and weak passwords.
     """
     svc = service or AuthService(config=AuthConfig.from_env(production=False))
     inp = input_stream or sys.stdin
     out = output_stream or sys.stdout
     err = error_stream or sys.stderr
     gp = getpass_fn or getpass.getpass
-    flags_given = email is not None or password is not None
+    flags_given = email is not None or password is not None or username is not None
     interactive = _is_interactive(inp) and not flags_given
     hasher = getattr(svc.config, "password", None) or PasswordHasher()
+    # Superuser path always enforces placeholders even if test hasher is lax.
+    if not hasher.reject_placeholders:
+        from dataclasses import replace
+
+        hasher = replace(hasher, reject_placeholders=True)
+
+    def _register(email_n: str, password_n: str, username_n: str | None) -> str:
+        p = svc.register(
+            email_n,
+            password_n,
+            username=username_n,
+            is_staff=True,
+            is_superuser=True,
+            reject_placeholders=True,
+        )
+        return str(p.id)
 
     if not interactive:
         email_n = validate_email(
             email
             if email is not None
-            else _read_line("Email: ", input_stream=inp, output_stream=out)
+            else _read_line("Email: ", input_stream=inp, output_stream=out),
+            reject_placeholders=True,
+        )
+        username_n = validate_username(
+            username
+            if username is not None
+            else (
+                _read_line(
+                    "Username (optional, Enter to skip): ",
+                    input_stream=inp,
+                    output_stream=out,
+                )
+                if prompt_username
+                else None
+            ),
+            reject_placeholders=True,
         )
         if password is None:
             password = _read_password(
@@ -134,12 +159,18 @@ def create_superuser(
                 interactive=_is_interactive(inp),
                 input_stream=inp,
             )
-        password_n = validate_password(password, hasher=hasher)
-        p = svc.register(email_n, password_n, is_staff=True, is_superuser=True)
-        return str(p.id)
+        password_n = validate_password(
+            password,
+            hasher=hasher,
+            email=email_n,
+            username=username_n,
+        )
+        return _register(email_n, password_n, username_n)
 
     # Interactive: retry until success or max attempts
     email_n: str | None = None
+    username_n: str | None = None
+    username_done = not prompt_username
     attempts = 0
     while attempts < max_attempts:
         attempts += 1
@@ -149,7 +180,19 @@ def create_superuser(
                 if not raw:
                     _print_error("email is required", output_stream=err)
                     continue
-                email_n = validate_email(raw)
+                email_n = validate_email(raw, reject_placeholders=True)
+
+            if not username_done:
+                raw_u = _read_line(
+                    "Username (optional, Enter to skip): ",
+                    input_stream=inp,
+                    output_stream=out,
+                )
+                username_n = validate_username(
+                    raw_u or None,
+                    reject_placeholders=True,
+                )
+                username_done = True
 
             pwd = _read_password(
                 "Password: ",
@@ -158,7 +201,12 @@ def create_superuser(
                 interactive=True,
                 input_stream=inp,
             )
-            password_n = validate_password(pwd, hasher=hasher)
+            password_n = validate_password(
+                pwd,
+                hasher=hasher,
+                email=email_n,
+                username=username_n,
+            )
 
             if confirm_password:
                 again = _read_password(
@@ -174,17 +222,21 @@ def create_superuser(
                         field="password",
                     )
 
-            p = svc.register(email_n, password_n, is_staff=True, is_superuser=True)
-            return str(p.id)
+            return _register(email_n, password_n, username_n)
         except ValidationAuthError as exc:
             field = (exc.details or {}).get("field")
             _print_error(exc.message, output_stream=err)
             if field == "email":
                 email_n = None
+            elif field == "username":
+                username_done = False
+                username_n = None
             continue
         except AuthError as exc:
             _print_error(exc.message, output_stream=err)
             email_n = None
+            username_done = not prompt_username
+            username_n = None
             continue
         except AuthCliError:
             raise
@@ -202,11 +254,13 @@ def run_create_superuser(
     email: str | None = None,
     password: str | None = None,
     *,
+    username: str | None = None,
     service: AuthService | None = None,
     input_stream: TextIO | None = None,
     output_stream: TextIO | None = None,
     error_stream: TextIO | None = None,
     getpass_fn: Callable[[str], str] | None = None,
+    prompt_username: bool = False,
 ) -> int:
     """CLI entry: create superuser; never prints a traceback for user errors."""
     out = output_stream or sys.stdout
@@ -215,11 +269,13 @@ def run_create_superuser(
         uid = create_superuser(
             email,
             password,
+            username=username,
             service=service,
             input_stream=input_stream,
             output_stream=output_stream,
             error_stream=error_stream,
             getpass_fn=getpass_fn,
+            prompt_username=prompt_username,
         )
     except AuthCliError as exc:
         err.write(f"error: {exc.message}\n")
@@ -227,10 +283,11 @@ def run_create_superuser(
         return int(exc.exit_code)
     except AuthError as exc:
         err.write(f"error: {exc.message}\n")
-        if email is not None or password is not None:
+        if email is not None or password is not None or username is not None:
             err.write(
-                "hint: password ≥10 characters; email like admin@example.com; "
-                "or omit flags for interactive retry prompts\n"
+                "hint: use a real email (not @example.com), avoid placeholder "
+                "usernames (admin/test/root), password ≥10 chars and not common "
+                "(password/admin123/…); or omit flags for interactive retries\n"
             )
         err.flush()
         return 2
@@ -253,9 +310,20 @@ def main(argv: list[str] | None = None) -> int:
     su = sub.add_parser("create-superuser", help="Create staff superuser")
     su.add_argument("--email")
     su.add_argument("--password")
+    su.add_argument("--username", default=None, help="optional username")
+    su.add_argument(
+        "--prompt-username",
+        action="store_true",
+        help="ask for username interactively (optional field)",
+    )
     ns = parser.parse_args(argv)
     if ns.cmd == "create-superuser":
-        return run_create_superuser(ns.email, ns.password)
+        return run_create_superuser(
+            ns.email,
+            ns.password,
+            username=ns.username,
+            prompt_username=bool(ns.prompt_username),
+        )
     parser.print_help()
     return 1
 

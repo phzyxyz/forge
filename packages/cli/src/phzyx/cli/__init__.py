@@ -9,7 +9,7 @@ import sys
 from pathlib import Path
 from typing import Any
 
-__version__ = "0.1.5"
+__version__ = "0.1.6"
 
 _EPILOG = """\
 first run (any OS — macOS / Linux / Windows):
@@ -91,8 +91,14 @@ def main(argv: list[str] | None = None) -> int:
     auth = sub.add_parser("auth", help="auth helpers (requires phzyx-auth)")
     auth_sub = auth.add_subparsers(dest="auth_command")
     su = auth_sub.add_parser("create-superuser", help="create staff superuser")
-    su.add_argument("--email")
-    su.add_argument("--password")
+    su.add_argument("--email", help="real email (not @example.com placeholders)")
+    su.add_argument("--password", help="≥10 chars; not common/placeholder values")
+    su.add_argument("--username", default=None, help="optional; not admin/test/root")
+    su.add_argument(
+        "--prompt-username",
+        action="store_true",
+        help="ask for username interactively",
+    )
 
     add = sub.add_parser(
         "add",
@@ -505,7 +511,12 @@ def _cmd_auth(ns: argparse.Namespace) -> int:
         return 2
     if ns.auth_command == "create-superuser":
         # Never dump stack traces for password policy / validation / cancel.
-        return run_create_superuser(ns.email, ns.password)
+        return run_create_superuser(
+            ns.email,
+            ns.password,
+            username=getattr(ns, "username", None),
+            prompt_username=bool(getattr(ns, "prompt_username", False)),
+        )
     if not ns.auth_command:
         print(
             "error: missing auth subcommand (try: forge auth create-superuser)",

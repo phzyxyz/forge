@@ -14,6 +14,16 @@ Monorepo still splits schema/engine/orm/admin/cli for development; those modules
 
 ## [Unreleased]
 
+## [0.1.6] — 2026-07-30
+
+### Added
+
+- **Auth policy:** reject placeholder / weak credentials on register and
+  `create-superuser` — emails on `example.com` / `test.com` / `localhost`,
+  reserved usernames (`admin`, `root`, `test`, …), common passwords
+  (`password123`, `admin123`, …), password equal to email/username.
+  Interactive CLI still retries with clear `error:` lines (no traceback).
+
 ## [0.1.5] — 2026-07-30
 
 ### Fixed

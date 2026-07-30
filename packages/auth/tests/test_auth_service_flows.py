@@ -196,7 +196,7 @@ def test_create_superuser_short_password_no_traceback(svc: AuthService) -> None:
 
     err = io.StringIO()
     code = run_create_superuser(
-        "admin@example.com",
+        "admin@phzyx.xyz",
         "short",
         service=svc,
         error_stream=err,
@@ -210,6 +210,59 @@ def test_create_superuser_short_password_no_traceback(svc: AuthService) -> None:
 
 
 @pytest.mark.unit
+def test_create_superuser_placeholder_email_rejected(svc: AuthService) -> None:
+    import io
+
+    from phzyx.auth.cli import run_create_superuser
+
+    err = io.StringIO()
+    code = run_create_superuser(
+        "admin@example.com",
+        "a-real-long-password-99",
+        service=svc,
+        error_stream=err,
+    )
+    assert code == 2
+    assert "placeholder" in err.getvalue().lower() or "example.com" in err.getvalue()
+    assert "Traceback" not in err.getvalue()
+
+
+@pytest.mark.unit
+def test_create_superuser_weak_password_rejected(svc: AuthService) -> None:
+    import io
+
+    from phzyx.auth.cli import run_create_superuser
+
+    err = io.StringIO()
+    code = run_create_superuser(
+        "boss@phzyx.xyz",
+        "password123",  # common placeholder, length ok
+        service=svc,
+        error_stream=err,
+    )
+    assert code == 2
+    assert "common" in err.getvalue().lower() or "placeholder" in err.getvalue().lower()
+
+
+@pytest.mark.unit
+def test_create_superuser_placeholder_username_rejected(svc: AuthService) -> None:
+    import io
+
+    from phzyx.auth.cli import run_create_superuser
+
+    err = io.StringIO()
+    code = run_create_superuser(
+        "boss2@phzyx.xyz",
+        "a-real-long-password-99",
+        username="admin",
+        service=svc,
+        error_stream=err,
+    )
+    assert code == 2
+    assert "username" in err.getvalue().lower()
+
+
+@pytest.mark.unit
 def test_create_superuser_interactive_retries_then_ok(svc: AuthService) -> None:
     """TTY-like interactive: bad email + short password → retry → success."""
     import io
@@ -218,8 +271,9 @@ def test_create_superuser_interactive_retries_then_ok(svc: AuthService) -> None:
 
     # isatty True so create_superuser enters retry loop
     inp = io.StringIO(
-        "admin\n"  # bad email
-        "admin@example.com\n"  # ok email (prompted after error)
+        "admin\n"  # bad format
+        "admin@example.com\n"  # placeholder domain
+        "boss@phzyx.xyz\n"  # ok
         # passwords via getpass_fn sequence
     )
     inp.isatty = lambda: True  # type: ignore[method-assign]
@@ -227,6 +281,7 @@ def test_create_superuser_interactive_retries_then_ok(svc: AuthService) -> None:
     passwords = iter(
         [
             "short",  # fail policy
+            "password123",  # common
             "goodpassword1",  # ok
             "goodpassword1",  # confirm
         ]
@@ -244,9 +299,10 @@ def test_create_superuser_interactive_retries_then_ok(svc: AuthService) -> None:
     assert code == 0, err.getvalue()
     assert "Created superuser" in out.getvalue()
     assert "email must look like" in err.getvalue()
-    assert "at least" in err.getvalue()
+    assert "example.com" in err.getvalue() or "placeholder" in err.getvalue().lower()
+    assert "at least" in err.getvalue() or "common" in err.getvalue().lower()
     assert "Traceback" not in err.getvalue()
-    assert "admin@example.com" in svc.users
+    assert "boss@phzyx.xyz" in svc.users
 
 
 @pytest.mark.unit

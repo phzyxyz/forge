@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Build the public 0.1.5 PyPI surface: fat phzyx-forge + auth + cache only.
+"""Build the public 0.1.6 PyPI surface: fat phzyx-forge + auth + cache only.
 
 Monorepo keeps split packages for development. This script stages a fat
 phzyx-forge wheel that vendors schema/engine/orm/admin/cli (+ SPA dist).
@@ -9,7 +9,7 @@ Usage (repo root):
   python scripts/build_pypi_release.py --out dist --skip-smoke
 
 Environment:
-  PHZYX_VERSION  override version (default 0.1.5)
+  PHZYX_VERSION  override version (default 0.1.6)
 """
 
 from __future__ import annotations
@@ -23,7 +23,7 @@ import tempfile
 import zipfile
 from pathlib import Path
 
-VERSION = "0.1.5"
+VERSION = "0.1.6"
 PUBLISH_NAMES = ("phzyx-forge", "phzyx-auth", "phzyx-cache")
 FORBIDDEN_WHEEL_PREFIXES = (
     "phzyx_schema",
