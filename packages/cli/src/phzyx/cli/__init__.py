@@ -9,13 +9,13 @@ import sys
 from pathlib import Path
 from typing import Any
 
-__version__ = "0.1.3"
+__version__ = "0.1.4"
 
 _EPILOG = """\
 first run (any OS — macOS / Linux / Windows):
 
   uv tool install phzyx-forge
-  # already installed an older build?
+  # already installed an older build? (need 0.1.4+ so start finds app/)
   uv tool install phzyx-forge --reinstall
 
   forge new myapp --yes          # same CLI: phzyx new myapp --yes
@@ -671,12 +671,26 @@ def _cmd_migrate(ns: argparse.Namespace) -> int:
     return 1
 
 
+def ensure_project_on_sys_path(root: Path | None = None) -> str:
+    """Make project root importable for ``package = false`` scaffolds.
+
+    Console-script entry points put the script directory on ``sys.path``, not
+    the cwd. Scaffolded apps keep ``app/`` as a plain layout (not an installed
+    package), so ``import app.*`` fails unless the project root is inserted.
+    """
+    path = str((root or Path.cwd()).resolve())
+    if path not in sys.path:
+        sys.path.insert(0, path)
+    return path
+
+
 def _load_models(spec: str | None) -> list[Any]:
     """Load models from ``module:attribute`` where attribute is a list/tuple of models."""
     if not spec:
         return []
     if ":" not in spec:
         raise SystemExit("models spec must be module:attr")
+    ensure_project_on_sys_path()
     mod_name, attr = spec.split(":", 1)
     mod = importlib.import_module(mod_name)
     obj = getattr(mod, attr)

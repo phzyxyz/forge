@@ -330,6 +330,12 @@ def start_app(
     """
     root = (root or Path.cwd()).resolve()
     os.chdir(root)
+    # Scaffolds use [tool.uv] package = false — app/ is not installed; console
+    # scripts do not put cwd on sys.path (unlike `python -m`). Required before
+    # loading app.forge.registry and before uvicorn resolves app.main:app.
+    from phzyx.cli import ensure_project_on_sys_path
+
+    ensure_project_on_sys_path(root)
 
     created = ensure_dotenv(root)
     if created:
@@ -374,7 +380,8 @@ def start_app(
     if reload:
         cmd.append("--reload")
     try:
-        return subprocess.call(cmd)
+        # Explicit cwd so reload workers and -m uvicorn resolve app.* from root.
+        return subprocess.call(cmd, cwd=str(root))
     except FileNotFoundError:
         print(
             "error: uvicorn not found — run inside project after `uv sync`",

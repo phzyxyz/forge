@@ -1053,7 +1053,7 @@ requires-dist = [
 
 [[package]]
 name = "phzyx-auth"
-version = "0.1.1"
+version = "0.1.4"
 source = { editable = "packages/auth" }
 dependencies = [
     { name = "argon2-cffi" },
@@ -1101,7 +1101,7 @@ provides-extras = ["redis", "oauth", "mfa", "webauthn", "fastapi", "litestar"]
 
 [[package]]
 name = "phzyx-cache"
-version = "0.1.1"
+version = "0.1.4"
 source = { editable = "packages/cache" }
 
 [package.optional-dependencies]
@@ -1115,7 +1115,7 @@ provides-extras = ["redis"]
 
 [[package]]
 name = "phzyx-cli"
-version = "0.1.1"
+version = "0.1.4"
 source = { editable = "packages/cli" }
 dependencies = [
     { name = "phzyx-engine" },

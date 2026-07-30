@@ -14,6 +14,26 @@ Monorepo still splits schema/engine/orm/admin/cli for development; those modules
 
 ## [Unreleased]
 
+## [0.1.4] — 2026-07-30
+
+### Fixed
+
+- **`forge start` / model load: `ModuleNotFoundError: No module named 'app'`** after
+  `forge new` + `uv sync`. Scaffolded apps use `[tool.uv] package = false` (plain
+  `app/` layout). Console-script entry points do not put the project root on
+  `sys.path`, so `import app.forge.registry` failed during schema preview.
+  **0.1.4** inserts the project root before loading models and before uvicorn.
+
+### Upgrade
+
+```bash
+# in the project (recommended)
+uv add phzyx-forge==0.1.4
+# or reinstall the tool + refresh lock
+uv tool install phzyx-forge --reinstall
+uv lock --upgrade-package phzyx-forge && uv sync
+```
+
 ## [0.1.3] — 2026-07-30
 
 ### Fixed
