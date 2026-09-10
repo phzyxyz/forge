@@ -2,7 +2,8 @@
 
 from __future__ import annotations
 
-from collections.abc import Sequence
+from collections.abc import AsyncIterator, Sequence
+from contextlib import asynccontextmanager
 from functools import lru_cache
 from types import TracebackType
 from typing import Any, TypeVar
@@ -57,17 +58,38 @@ class AsyncSession:
     Pass ``read_only=True`` to reject writes (get/query/count still work).
     """
 
-    def __init__(self, conn: Any, *, dialect: Dialect, read_only: bool = False) -> None:
+    def __init__(
+        self,
+        conn: Any,
+        *,
+        dialect: Dialect,
+        read_only: bool = False,
+        owns_connection: bool = True,
+        manage_transaction: bool | None = None,
+    ) -> None:
         self._conn = conn
         self.dialect = dialect
         self.read_only = read_only
+        self.owns_connection = owns_connection
+        self.manage_transaction = (
+            owns_connection if manage_transaction is None else manage_transaction
+        )
         self._in_tx = False
+        self._transaction: Any = None
+        self._savepoint_depth = 0
+        self._closed = False
 
     def _ensure_writable(self) -> None:
         if self.read_only:
             raise OrmError("AsyncSession is read_only; writes are disabled")
 
     async def __aenter__(self) -> AsyncSession:
+        if self.manage_transaction and self.dialect is Dialect.POSTGRES:
+            try:
+                await self.begin()
+            except BaseException:
+                await self.close()
+                raise
         return self
 
     async def __aexit__(
@@ -76,39 +98,110 @@ class AsyncSession:
         exc: BaseException | None,
         tb: TracebackType | None,
     ) -> None:
-        if exc_type is not None:
-            await self.rollback()
-        else:
-            await self.commit()
-        await self.close()
+        try:
+            if self.manage_transaction:
+                if exc_type is not None:
+                    await self.rollback()
+                else:
+                    await self.commit()
+        finally:
+            await self.close()
 
     async def close(self) -> None:
-        if hasattr(self._conn, "close"):
-            result = self._conn.close()
-            if hasattr(result, "__await__"):
-                await result
+        """Roll back session-owned work; close only an owned connection."""
+        if self._closed:
+            return
+        try:
+            if self._in_tx:
+                await self.rollback()
+        finally:
+            self._closed = True
+            if self.owns_connection and hasattr(self._conn, "close"):
+                result = self._conn.close()
+                if hasattr(result, "__await__"):
+                    await result
 
     async def commit(self) -> None:
-        if self.read_only:
-            self._in_tx = False
-            return
-        if self.dialect is Dialect.SQLITE:
+        """Commit only a transaction this session owns."""
+        if self._savepoint_depth:
+            raise OrmError("finish the savepoint context before committing")
+        if self.dialect is Dialect.SQLITE and (self.manage_transaction or self._in_tx):
             await self._conn.commit()
-        elif hasattr(self._conn, "transaction") and self._in_tx:
-            # asyncpg uses transaction context; plain connection auto-commits statements
-            pass
+        elif self._transaction is not None:
+            try:
+                await self._transaction.commit()
+            finally:
+                # asyncpg transaction objects cannot be reused after failed commit.
+                # Owned connections close; pools reset borrowed connections.
+                self._transaction = None
+                self._in_tx = False
         self._in_tx = False
 
     async def rollback(self) -> None:
-        if self.dialect is Dialect.SQLITE:
+        """Roll back only a transaction this session owns."""
+        if self._savepoint_depth:
+            raise OrmError("finish the savepoint context before rolling back")
+        if self.dialect is Dialect.SQLITE and (self.manage_transaction or self._in_tx):
             await self._conn.rollback()
+        elif self._transaction is not None:
+            try:
+                await self._transaction.rollback()
+            finally:
+                self._transaction = None
+                self._in_tx = False
         self._in_tx = False
 
     async def begin(self) -> AsyncSession:
+        """Start a real transaction; an existing PostgreSQL transaction gets a savepoint."""
+        if self._closed or self._in_tx:
+            raise OrmError("session is closed or already has a transaction; use savepoint()")
         if self.dialect is Dialect.SQLITE:
             await self._conn.execute("BEGIN")
+        else:
+            transaction = self._conn.transaction(readonly=self.read_only)
+            await transaction.start()
+            self._transaction = transaction
         self._in_tx = True
         return self
+
+    @asynccontextmanager
+    async def savepoint(self) -> AsyncIterator[AsyncSession]:
+        """Scope nested PostgreSQL work without committing the outer transaction."""
+        if self.dialect is not Dialect.POSTGRES or not self._in_tx:
+            raise OrmError("savepoint requires an active session-owned PostgreSQL transaction")
+        transaction = self._conn.transaction()
+        await transaction.start()
+        self._savepoint_depth += 1
+        try:
+            yield self
+        except BaseException:
+            await transaction.rollback()
+            raise
+        else:
+            await transaction.commit()
+        finally:
+            self._savepoint_depth -= 1
+
+    async def fetch_native(self, sql: str, *params: Any) -> list[dict[str, Any]]:
+        """Read PostgreSQL rows using native $n parameters, with no SQL rewriting."""
+        if self.dialect is not Dialect.POSTGRES:
+            raise OrmError("native SQL requires PostgreSQL")
+        if self.read_only and not self._in_tx:
+            raise OrmError("native read-only SQL requires a session-owned transaction")
+        rows = await self._conn.fetch(sql, *params)
+        return [dict(row) for row in rows]
+
+    async def execute_native(self, sql: str, *params: Any) -> str:
+        """Execute native PostgreSQL SQL; return the driver's command status.
+
+        Read-only PostgreSQL transactions enforce read-only behavior in the
+        database, including writes concealed in CTEs or function calls.
+        """
+        if self.dialect is not Dialect.POSTGRES:
+            raise OrmError("native SQL requires PostgreSQL")
+        if self.read_only and not self._in_tx:
+            raise OrmError("native read-only SQL requires a session-owned transaction")
+        return await self._conn.execute(sql, *params)
 
     async def add(self, instance: Model) -> Model:
         self._ensure_writable()

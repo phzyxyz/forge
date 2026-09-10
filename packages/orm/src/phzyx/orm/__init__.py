@@ -30,6 +30,7 @@ from phzyx.orm.keyset import (
     keyset_filters_note,
     order_from_columns,
 )
+from phzyx.orm.pool_async import AsyncPostgresPool
 from phzyx.orm.relations import fetch_related, fetch_related_async
 from phzyx.orm.session_async import AsyncSession, create_async_session
 from phzyx.orm.session_sync import Session, create_session
@@ -66,6 +67,7 @@ __version__ = "0.1.1"
 
 __all__ = [
     "AsyncEngine",
+    "AsyncPostgresPool",
     "AsyncSession",
     "ConflictError",
     "Engine",

@@ -98,3 +98,5 @@ Existing project: `phzyx forge init --yes` (does not clobber main.py). CLI map: 
 - Phzyx website: sites/web → phzyx.xyz (docs at /forge)
 - Never commit secrets
 - **Update llms.txt / sites/web/public/llms*.txt on every install or extras change**
+
+- Local development ORM update (unpublished): `AsyncPostgresPool` owns bounded asyncpg pools; `pool.session()` owns transactions. Borrowed `AsyncSession(..., owns_connection=False)` leaves caller transactions/connections alone. `fetch_native` / `execute_native` accept native `$n` parameters. See packages/orm/README.md.

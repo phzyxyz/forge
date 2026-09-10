@@ -80,3 +80,43 @@ FK as scalar fields; optional `fetch_related` / `fetch_related_async`. **Non-goa
 ## Query API
 
 See `src/phzyx/orm/query_api.md`.
+
+
+## PostgreSQL application lifecycle (local development update)
+
+```python
+from phzyx.orm import AsyncPostgresPool
+
+pool = AsyncPostgresPool(dsn, min_size=1, max_size=10, statement_cache_size=0)
+await pool.open()  # FastAPI lifespan startup
+async with pool.session() as session:
+    await session.execute_native("SELECT set_config('app.tenant_id', $1, true)", "42")
+    rows = await session.fetch_native("SELECT $1::jsonb AS payload", {"ok": True})
+    async with session.savepoint():
+        pass  # nested work rolls back independently on exception
+await pool.close()  # lifespan shutdown
+```
+
+Pooled sessions begin a real transaction and commit or roll back on exit.
+Borrowed connections are released to the pool, never closed by the session.
+JSON/JSONB codecs use Python values by default; UUID, decimal, timestamps and
+arrays retain asyncpg codecs. Use `json_codecs=False` to retain driver JSON
+strings, and `init=` for additional per-connection configuration.
+
+Direct `AsyncSession(conn, dialect=...)` retains connection ownership by default.
+Its PostgreSQL context now begins a real transaction. For caller-owned
+connections, use `owns_connection=False`: by default the session neither closes
+the connection nor commits/rolls back its transaction. Explicit
+`manage_transaction=True` owns a transaction (or a savepoint within an existing
+one). `begin()` starts explicit work; use `savepoint()` for nesting. After an
+explicit commit/rollback, call `begin()` before another atomic unit of work.
+
+`fetch_native` returns dictionaries and `execute_native` returns the asyncpg
+command status. They use native `$n` parameters without textual replacement;
+never interpolate untrusted values or identifiers. `read_only=True` managed
+sessions use a PostgreSQL read-only transaction, including for CTEs. Existing
+portable CRUD builders remain a separate API and still use their legacy
+placeholder conversion; their broader query migration is not completed here.
+
+This development update is not published. PostgreSQL checks require an explicit
+`PHZYX_TEST_DATABASE_URL` pointing to a disposable database.
