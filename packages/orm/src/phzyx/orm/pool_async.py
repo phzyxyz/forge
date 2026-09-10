@@ -4,7 +4,7 @@ from __future__ import annotations
 
 import asyncio
 import json
-from collections.abc import AsyncIterator, Awaitable, Callable
+from collections.abc import AsyncGenerator, Awaitable, Callable
 from contextlib import asynccontextmanager
 from typing import Any
 
@@ -95,7 +95,7 @@ class AsyncPostgresPool:
                 raise
 
     @asynccontextmanager
-    async def connection(self) -> AsyncIterator[Any]:
+    async def connection(self) -> AsyncGenerator[Any, None]:
         """Borrow a raw asyncpg connection; release resets state even on cancellation."""
         pool = self._pool
         if pool is None:
@@ -104,7 +104,7 @@ class AsyncPostgresPool:
             yield conn
 
     @asynccontextmanager
-    async def session(self, *, read_only: bool = False) -> AsyncIterator[AsyncSession]:
+    async def session(self, *, read_only: bool = False) -> AsyncGenerator[AsyncSession, None]:
         """Borrow one connection for an automatically committed/rolled-back transaction."""
         async with (
             self.connection() as conn,

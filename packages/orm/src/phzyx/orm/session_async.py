@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from collections.abc import AsyncIterator, Sequence
+from collections.abc import AsyncGenerator, Sequence
 from contextlib import asynccontextmanager
 from functools import lru_cache
 from types import TracebackType
@@ -165,7 +165,7 @@ class AsyncSession:
         return self
 
     @asynccontextmanager
-    async def savepoint(self) -> AsyncIterator[AsyncSession]:
+    async def savepoint(self) -> AsyncGenerator[AsyncSession, None]:
         """Scope nested PostgreSQL work without committing the outer transaction."""
         if self.dialect is not Dialect.POSTGRES or not self._in_tx:
             raise OrmError("savepoint requires an active session-owned PostgreSQL transaction")
