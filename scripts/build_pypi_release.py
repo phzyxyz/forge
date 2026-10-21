@@ -9,7 +9,7 @@ Usage (repo root):
   python scripts/build_pypi_release.py --out dist --skip-smoke
 
 Environment:
-  PHZYX_VERSION  override version (default 0.1.9)
+  PHZYX_VERSION  override version (default 0.1.10)
 """
 
 from __future__ import annotations
@@ -23,7 +23,10 @@ import tempfile
 import zipfile
 from pathlib import Path
 
-VERSION = "0.1.9"
+VERSION = "0.1.10"
+# Auth publishes on its own. Forge 0.1.9 used {VERSION} here and asked for
+# phzyx-auth>=0.1.9, which was never released. The floor stays 0.1.8.
+AUTH_SPEC = "phzyx-auth[fastapi]>=0.1.8,<0.2"
 PUBLISH_NAMES = ("phzyx-forge", "phzyx-auth", "phzyx-cache")
 FORBIDDEN_WHEEL_PREFIXES = (
     "phzyx_schema",
@@ -76,7 +79,7 @@ sqlite = []
 postgres = ["asyncpg", "psycopg[binary]>=3"]
 mysql = ["pymysql"]
 mssql = ["pymssql>=2.3"]
-auth = ["phzyx-auth[fastapi]>={VERSION},<0.2"]
+auth = ["{AUTH_SPEC}"]
 cache = ["phzyx-cache>=0.1.6,<0.2"]
 litestar = ["litestar>=2.12"]
 # Literally full: every driver + batteries + Litestar (SQLite already in core).
@@ -85,7 +88,7 @@ full = [
   "psycopg[binary]>=3",
   "pymysql",
   "pymssql>=2.3",
-  "phzyx-auth[fastapi]>={VERSION},<0.2",
+  "{AUTH_SPEC}",
   "phzyx-cache>=0.1.6,<0.2",
   "litestar>=2.12",
 ]

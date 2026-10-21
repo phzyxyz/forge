@@ -14,6 +14,14 @@ Monorepo still splits schema/engine/orm/admin/cli for development; those modules
 
 ## [Unreleased]
 
+## [0.1.10] — 2026-10-21
+
+### Fixed
+
+- **Auth extra.** `phzyx-forge[auth]` requires `phzyx-auth[fastapi]>=0.1.8,<0.2`.
+  Forge 0.1.9 asked for `phzyx-auth>=0.1.9`, and that release does not exist.
+  Auth itself stays 0.1.8.
+
 ## [0.1.9] — 2026-10-21
 
 ### Fixed
