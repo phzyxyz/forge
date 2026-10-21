@@ -121,7 +121,10 @@ def test_generated_security_markers(tmp_path: Path) -> None:
     root = tmp_path / "sec"
     db = (root / "app" / "forge" / "db.py").read_text(encoding="utf-8")
     assert "from phzyx.orm import" in db
+    assert "create_async_session" in db
     assert "session_sync" not in db
+    main_txt = (root / "app" / "main.py").read_text(encoding="utf-8")
+    assert "async_engine.dispose" in main_txt
     admin = (root / "app" / "forge" / "admin.py").read_text(encoding="utf-8")
     assert "authz_for_admin" in admin
     schemas = (root / "app" / "api" / "schemas" / "items.py").read_text(encoding="utf-8")

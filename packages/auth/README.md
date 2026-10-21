@@ -36,7 +36,7 @@ uv add 'phzyx-forge[auth]'
 uv add 'phzyx-auth[fastapi]'
 ```
 
-Requires **`phzyx-forge`** (product wheel).
+Requires **`phzyx-forge`** (library wheel).
 
 ---
 

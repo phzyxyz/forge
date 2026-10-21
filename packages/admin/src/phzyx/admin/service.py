@@ -14,7 +14,14 @@ from phzyx.admin.actions import (
     run_bulk_action,
 )
 from phzyx.admin.audit import AuditLog
-from phzyx.admin.auth import AllowAll, AllowAllFields, Authz, FieldAuthz, require_authz
+from phzyx.admin.auth import (
+    AllowAll,
+    AllowAllFields,
+    Authz,
+    FieldAuthz,
+    refuse_allow_all,
+    require_authz,
+)
 from phzyx.admin.errors import ConflictError, NotFoundError, ValidationAdminError
 from phzyx.admin.export_copy import copy_payload, export_csv, export_json
 from phzyx.admin.filters import FILTER_OPS, build_where
@@ -90,6 +97,9 @@ class AdminService:
     field_authz: FieldAuthz = field(default_factory=AllowAllFields)
     audit: AuditLog | None = None
     storage: Any | None = None
+
+    def __post_init__(self) -> None:
+        refuse_allow_all(self.authz)
 
     def list_resources(self, *, principal: Any | None = None) -> list[dict[str, Any]]:
         return [self.public_schema(r.name, principal=principal) for r in self.resources.values()]

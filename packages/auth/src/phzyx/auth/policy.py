@@ -270,7 +270,7 @@ def validate_username(
 def validate_password_value(
     password: str,
     *,
-    min_length: int = 10,
+    min_length: int = 8,
     email: str | None = None,
     username: str | None = None,
     reject_placeholders: bool = True,

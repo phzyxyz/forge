@@ -32,7 +32,7 @@ def test_auth_create_superuser_bad_email_exit_clean(capsys) -> None:
             "--email",
             "admin",
             "--password",
-            "longenoughpassword",
+            "longpass1",
         ]
     )
     assert code == 2

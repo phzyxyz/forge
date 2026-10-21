@@ -12,6 +12,7 @@ from typing import Any
 from phzyx.engine.apply_ops import render_op
 from phzyx.engine.errors import MigrationError
 from phzyx.engine.plan import SchemaPlan
+from phzyx.engine.sql_split import split_statements
 from phzyx.schema.types import Dialect
 
 HISTORY_TABLE = "_phzyx_migrations"
@@ -276,22 +277,13 @@ def _exec(connection: Any, sql: str) -> None:
 
 
 def _exec_script(connection: Any, sql: str, *, dialect: Dialect) -> None:
-    # re-split carefully: keep multi-line
-    parts: list[str] = []
-    buf: list[str] = []
-    for line in sql.splitlines():
-        if line.strip().startswith("--"):
-            continue
-        buf.append(line)
-        if line.rstrip().endswith(";"):
-            parts.append("\n".join(buf).strip().rstrip(";").strip())
-            buf = []
-    if buf:
-        tail = "\n".join(buf).strip().rstrip(";").strip()
-        if tail:
-            parts.append(tail)
-    for stmt in parts:
-        if not stmt:
+    """Run one migration file statement by statement.
+
+    Semicolons inside strings, quoted identifiers, comments, and
+    dollar-quoted function bodies do not end a statement.
+    """
+    for stmt in split_statements(sql):
+        if not stmt.strip():
             continue
         if dialect is Dialect.SQLITE:
             connection.execute(stmt)

@@ -20,6 +20,7 @@ from phzyx.auth.errors import (
 )
 from phzyx.auth.oauth import OAuthProvider
 from phzyx.auth.passkeys import (
+    HmacPasskeyBackend,
     PasskeyBackend,
     default_passkey_backend,
 )
@@ -28,7 +29,7 @@ from phzyx.auth.principal import Principal, principal_from_user
 from phzyx.auth.rate_limit import MemoryRateLimiter, RateLimiter
 from phzyx.auth.rbac import resolve_permissions, user_is_locked
 from phzyx.auth.sessions import MemorySessionStore, SessionStore
-from phzyx.auth.tokens import JwtService, TokenPair
+from phzyx.auth.tokens import JwtService, MemoryRefreshStore, TokenPair
 from phzyx.auth.totp import generate_totp_secret, provisioning_uri, verify_totp
 
 
@@ -103,10 +104,56 @@ class AuthService:
             )
         if self.passkey_backend is None:
             self.passkey_backend = default_passkey_backend()
+        self._refuse_memory_in_production()
+
+    def _refuse_memory_in_production(self) -> None:
+        """Production must not keep identity in process memory."""
+        if not self.config.production:
+            return
+        problems: list[str] = []
+        if isinstance(self.sessions, MemorySessionStore):
+            problems.append("sessions")
+        if isinstance(self.users, dict):
+            problems.append("users")
+        if isinstance(self.api_keys, MemoryAPIKeyStore):
+            problems.append("api_keys")
+        if isinstance(self.rate_limiter, MemoryRateLimiter):
+            problems.append("rate_limiter")
+        if self.password_reset_store is None:
+            problems.append("password_reset_store")
+        refresh = getattr(self.jwt, "refresh_store", None)
+        if isinstance(refresh, MemoryRefreshStore):
+            problems.append("refresh_store")
+        if isinstance(self.passkey_backend, HmacPasskeyBackend):
+            problems.append("passkeys (HMAC is not WebAuthn)")
+        if problems:
+            raise RuntimeError(
+                "production auth refuses in-memory stores: "
+                + ", ".join(problems)
+                + ". Wire the ORM stores (and phzyx-auth[webauthn] if passkeys are on)."
+            )
 
     def _next_id(self) -> int:
+        """Next id for the in-memory user dict. Database users do not use this."""
         self._id_seq += 1
         return self._id_seq
+
+    def _id_for_new_user(self, requested_id: int | None) -> int | None:
+        """Primary key to store on a user that has not been saved yet.
+
+        An id the caller passed in is kept. A plain ``dict`` has no identity
+        column, so the counter on this service is the only source.
+
+        ``HybridUserMap`` and other stores write the row. Leaving the id
+        empty makes the database assign it inside the INSERT. The counter
+        above starts at 1 on every new ``AuthService``, so two processes
+        would both try to insert id 1.
+        """
+        if requested_id is not None:
+            return requested_id
+        if isinstance(self.users, dict):
+            return self._next_id()
+        return None
 
     def _perms_for(self, user: Any) -> frozenset[str]:
         if self.permission_loader:
@@ -158,7 +205,7 @@ class AuthService:
         )
         if email_n in self.users:
             raise ValidationAuthError("email already registered", field="email")
-        uid = user_id if user_id is not None else self._next_id()
+        assigned_id = self._id_for_new_user(user_id)
         model = self.config.user_model
         # Temporarily honor strict flag for this hash even if hasher is lax in tests.
         hasher = self.config.password
@@ -167,7 +214,7 @@ class AuthService:
 
             hasher = replace(hasher, reject_placeholders=True)
         user = model(
-            id=uid,
+            id=assigned_id,
             email=email_n,
             username=username_n,
             password_hash=hasher.hash(
@@ -183,8 +230,36 @@ class AuthService:
         self.users[email_n] = user
         # HybridUserMap may reassign id on insert
         stored = self.users.get(email_n, user)
-        self.audit.record("register", actor_id=str(getattr(stored, "id", uid)))
+        self.audit.record("register", actor_id=str(getattr(stored, "id", assigned_id)))
         return self._principal(stored, method="password")
+
+    def resolve_login_user(self, identity: str) -> Any | None:
+        """Resolve a login id as email **or** username (Django-style).
+
+        Order: email match (case-insensitive), then username match.
+        """
+        raw = (identity or "").strip()
+        if not raw:
+            return None
+        email_n = raw.lower()
+        user = self.users.get(email_n)
+        if user is not None:
+            return user
+        # HybridUserMap / custom maps may implement username lookup
+        getter = getattr(self.users, "get_by_username", None)
+        if callable(getter):
+            found = getter(raw)
+            if found is not None:
+                return found
+        # In-memory dict: scan values for username
+        values = getattr(self.users, "values", None)
+        if callable(values):
+            lower = raw.lower()
+            for u in values():
+                uname = getattr(u, "username", None)
+                if uname and str(uname).lower() == lower:
+                    return u
+        return None
 
     def login(
         self,
@@ -195,17 +270,23 @@ class AuthService:
         user_agent: str | None = None,
         issue_jwt: bool = False,
     ) -> AuthResult:
-        email_n = email.strip().lower()
+        """Password login. ``email`` is the identity field: **email or username**.
+
+        Kept as ``email`` for API compatibility; also accepts username values
+        (same idea as Django's ``USERNAME_FIELD`` / dual login).
+        """
+        identity = (email or "").strip()
+        identity_key = identity.lower()
         ip_h = hash_ip(ip)
         if not self.rate_limiter.hit(f"login:ip:{ip_h or 'unknown'}", limit=20, window_seconds=60):
             self.audit.record("login.rate_limited", ip_hash=ip_h)
             raise InvalidCredentialsError("Too many attempts")
-        if not self.rate_limiter.hit(f"login:email:{email_n}", limit=10, window_seconds=60):
+        if not self.rate_limiter.hit(f"login:id:{identity_key}", limit=10, window_seconds=60):
             raise InvalidCredentialsError("Too many attempts")
 
-        user = self.users.get(email_n)
+        user = self.resolve_login_user(identity)
         if user is None or not getattr(user, "password_hash", None):
-            self.audit.record("login.failed", ip_hash=ip_h, email=email_n)
+            self.audit.record("login.failed", ip_hash=ip_h, email=identity_key)
             raise InvalidCredentialsError()
         if not getattr(user, "is_active", True):
             raise InvalidCredentialsError()
@@ -740,8 +821,17 @@ class AuthService:
     # ── Passkeys / WebAuthn ────────────────────────────────────────────────
 
     def _passkey_backend(self) -> PasskeyBackend:
-        assert self.passkey_backend is not None
-        return self.passkey_backend
+        backend = self.passkey_backend
+        if isinstance(backend, HmacPasskeyBackend) and self.config.production:
+            raise RuntimeError(
+                "HMAC passkeys are refused in production; install phzyx-auth[webauthn]"
+            )
+        if backend is None:
+            raise RuntimeError(
+                "passkeys require phzyx-auth[webauthn]; "
+                "the missing package no longer falls back to HMAC"
+            )
+        return backend
 
     def passkey_register_begin(self, user_id: str) -> dict[str, Any]:
         user = self._user_by_id(user_id)

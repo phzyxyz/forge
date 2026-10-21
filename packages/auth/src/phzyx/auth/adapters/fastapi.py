@@ -198,8 +198,16 @@ def create_auth_router(service: AuthService, *, prefix: str = "/auth") -> Any:
     @router.post("/login")
     async def login(body: dict[str, Any], request: Request, response: Response) -> Any:
         try:
+            # Django-style: accept email, username, or generic login/identity.
+            identity = (
+                body.get("email")
+                or body.get("username")
+                or body.get("login")
+                or body.get("identity")
+                or ""
+            )
             result = service.login(
-                str(body.get("email") or ""),
+                str(identity),
                 str(body.get("password") or ""),
                 ip=_client_ip(request),
                 user_agent=request.headers.get("user-agent"),

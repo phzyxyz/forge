@@ -4,8 +4,11 @@ from __future__ import annotations
 
 import argparse
 import getpass
+import importlib
+import os
 import sys
 from collections.abc import Callable
+from pathlib import Path
 from typing import TextIO
 
 from phzyx.auth.config import AuthConfig
@@ -45,6 +48,90 @@ def validate_password(
         raise
     except ValueError as exc:
         raise ValidationAuthError(str(exc), field="password") from exc
+
+
+def _load_dotenv(root: Path) -> None:
+    """Minimal .env loader (KEY=VALUE if unset) — keeps CLI free of python-dotenv."""
+    path = root / ".env"
+    if not path.is_file():
+        return
+    for raw in path.read_text(encoding="utf-8").splitlines():
+        line = raw.strip()
+        if not line or line.startswith("#") or "=" not in line:
+            continue
+        key, _, val = line.partition("=")
+        key = key.strip()
+        val = val.strip().strip("'").strip('"')
+        if key and key not in os.environ:
+            os.environ[key] = val
+
+
+def _ensure_project_on_sys_path(root: Path) -> None:
+    path = str(root.resolve())
+    if path not in sys.path:
+        sys.path.insert(0, path)
+
+
+def resolve_project_auth_service(
+    *,
+    root: Path | None = None,
+    error_stream: TextIO | None = None,
+) -> AuthService | None:
+    """Build the app's ORM-backed AuthService (scaffold: app.forge.auth).
+
+    Returns None if no project wiring is found. Without this, create-superuser
+    would only write to an in-memory map that never reaches AdminBoard login.
+    """
+    err = error_stream or sys.stderr
+    project = (root or Path.cwd()).resolve()
+    _ensure_project_on_sys_path(project)
+    _load_dotenv(project)
+
+    candidates: list[tuple[str, str, str, str]] = [
+        ("app.forge.auth", "build_auth_service", "app.forge.db", "get_admin_session"),
+        ("app.auth", "build_auth_service", "app.db", "get_session"),
+    ]
+    for auth_mod, auth_attr, db_mod, db_attr in candidates:
+        try:
+            am = importlib.import_module(auth_mod)
+            dm = importlib.import_module(db_mod)
+        except ImportError:
+            continue
+        builder = getattr(am, auth_attr, None)
+        session_factory = getattr(dm, db_attr, None)
+        if not callable(builder) or not callable(session_factory):
+            continue
+        try:
+            svc = builder(session_factory)
+        except Exception as exc:  # noqa: BLE001
+            err.write(f"warning: could not build auth service from {auth_mod}: {exc}\n")
+            err.flush()
+            continue
+        if isinstance(svc, AuthService):
+            return svc
+    return None
+
+
+def default_auth_service(
+    *,
+    root: Path | None = None,
+    error_stream: TextIO | None = None,
+) -> tuple[AuthService, bool]:
+    """Return (service, from_project).
+
+    ``from_project=True`` means users persist via the app ORM (AdminBoard login works).
+    """
+    err = error_stream or sys.stderr
+    project = resolve_project_auth_service(root=root, error_stream=error_stream)
+    if project is not None:
+        return project, True
+    err.write(
+        "warning: no app.forge.auth wiring found — creating user in-memory only\n"
+        "hint: run from a scaffolded project root (with app/forge/auth.py) so the "
+        "superuser is stored in your database for /admin login\n"
+    )
+    err.flush()
+    return AuthService(config=AuthConfig.from_env(production=False)), False
 
 
 def _is_interactive(stream: TextIO) -> bool:
@@ -99,16 +186,23 @@ def create_superuser(
     max_attempts: int = 5,
     confirm_password: bool = True,
     prompt_username: bool = False,
+    project_root: Path | None = None,
 ) -> str:
     """Register a staff+superuser. Returns user id.
 
-    Interactive (TTY and no flags): re-prompts on validation errors instead of
-    dumping a traceback. Rejects placeholder emails/usernames and weak passwords.
+    Uses the scaffold ORM auth service when available so AdminBoard can log in.
     """
-    svc = service or AuthService(config=AuthConfig.from_env(production=False))
+    err = error_stream or sys.stderr
+    if service is not None:
+        svc = service
+        from_project = True
+    else:
+        svc, from_project = default_auth_service(
+            root=project_root,
+            error_stream=error_stream,
+        )
     inp = input_stream or sys.stdin
     out = output_stream or sys.stdout
-    err = error_stream or sys.stderr
     gp = getpass_fn or getpass.getpass
     flags_given = email is not None or password is not None or username is not None
     interactive = _is_interactive(inp) and not flags_given
@@ -120,14 +214,33 @@ def create_superuser(
         hasher = replace(hasher, reject_placeholders=True)
 
     def _register(email_n: str, password_n: str, username_n: str | None) -> str:
-        p = svc.register(
-            email_n,
-            password_n,
-            username=username_n,
-            is_staff=True,
-            is_superuser=True,
-            reject_placeholders=True,
-        )
+        try:
+            p = svc.register(
+                email_n,
+                password_n,
+                username=username_n,
+                is_staff=True,
+                is_superuser=True,
+                reject_placeholders=True,
+            )
+        except Exception as exc:  # noqa: BLE001
+            msg = str(exc)
+            if "no such table" in msg.lower() or "does not exist" in msg.lower():
+                raise AuthCliError(
+                    "auth tables missing — run schema first: "
+                    "uv run forge start  (apply schema) or  "
+                    "uv run forge db push --models app.forge.registry:ALL_MODELS --yes",
+                    exit_code=2,
+                ) from exc
+            raise
+        if from_project:
+            # Confirm the row is visible via the same map login will use.
+            stored = svc.users.get(email_n)
+            if stored is None:
+                raise AuthCliError(
+                    "user was not persisted — check database URL and auth wiring",
+                    exit_code=2,
+                )
         return str(p.id)
 
     if not interactive:
@@ -261,6 +374,7 @@ def run_create_superuser(
     error_stream: TextIO | None = None,
     getpass_fn: Callable[[str], str] | None = None,
     prompt_username: bool = False,
+    project_root: Path | None = None,
 ) -> int:
     """CLI entry: create superuser; never prints a traceback for user errors."""
     out = output_stream or sys.stdout
@@ -276,6 +390,7 @@ def run_create_superuser(
             error_stream=error_stream,
             getpass_fn=getpass_fn,
             prompt_username=prompt_username,
+            project_root=project_root,
         )
     except AuthCliError as exc:
         err.write(f"error: {exc.message}\n")
@@ -286,8 +401,8 @@ def run_create_superuser(
         if email is not None or password is not None or username is not None:
             err.write(
                 "hint: use a real email (not @example.com), avoid placeholder "
-                "usernames (admin/test/root), password ≥10 chars and not common "
-                "(password/admin123/…); or omit flags for interactive retries\n"
+                "usernames (admin/test/root), password ≥8 chars and not common "
+                "(password/admin123/…); run from project root so user is saved to DB\n"
             )
         err.flush()
         return 2
@@ -300,6 +415,7 @@ def run_create_superuser(
         err.flush()
         return 130
     out.write(f"Created superuser id={uid}\n")
+    out.write("next: open /admin/ and sign in with that email + password\n")
     out.flush()
     return 0
 

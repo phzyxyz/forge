@@ -14,12 +14,23 @@ class AsyncEngine:
     dialect: Dialect
     url: str
     _factory: Any
+    _pool: Any = None
 
     async def connect(self) -> Any:
+        """Open one connection.
+
+        PostgreSQL engines borrow from a pool and mark the connection with
+        ``_phzyx_release``. :meth:`dispose` closes that pool. SQLite still
+        opens a single driver connection.
+        """
+        if self._pool is not None:
+            return await self._pool.checkout()
         return await self._factory()
 
     async def dispose(self) -> None:
-        return None
+        """Close the PostgreSQL pool. No-op for SQLite and an unopened pool."""
+        if self._pool is not None:
+            await self._pool.close()
 
 
 def create_async_engine(url: str) -> AsyncEngine:
@@ -37,13 +48,12 @@ def create_async_engine(url: str) -> AsyncEngine:
             _factory=_aiosqlite_factory(path),
         )
     if raw.startswith(("postgresql+asyncpg://", "postgres+asyncpg://")):
-        dsn = raw.split("://", 1)[1]
-        dsn = "postgresql://" + dsn
-        return AsyncEngine(dialect=Dialect.POSTGRES, url=raw, _factory=_asyncpg_factory(dsn))
+        dsn = "postgresql://" + raw.split("://", 1)[1]
+        return _postgres_engine(raw, dsn)
     if raw.startswith(("postgresql://", "postgres://")):
         # prefer asyncpg when create_async_engine is used
         dsn = raw.replace("postgres://", "postgresql://", 1)
-        return AsyncEngine(dialect=Dialect.POSTGRES, url=raw, _factory=_asyncpg_factory(dsn))
+        return _postgres_engine(raw, dsn)
     raise ValueError("unsupported async URL; use sqlite+aiosqlite:///… or postgresql+asyncpg://…")
 
 
@@ -71,12 +81,12 @@ def _aiosqlite_factory(path: str):
     return _connect
 
 
-def _asyncpg_factory(dsn: str):
-    async def _connect():
-        try:
-            import asyncpg  # type: ignore[import-not-found]
-        except ImportError as exc:  # pragma: no cover
-            raise ImportError("install asyncpg: uv add 'phzyx-orm[postgres]'") from exc
-        return await asyncpg.connect(dsn)
+def _postgres_engine(url: str, dsn: str) -> AsyncEngine:
+    from phzyx.orm.pool_async import AsyncPostgresPool
 
-    return _connect
+    return AsyncEngine(
+        dialect=Dialect.POSTGRES,
+        url=url,
+        _factory=None,
+        _pool=AsyncPostgresPool(dsn),
+    )

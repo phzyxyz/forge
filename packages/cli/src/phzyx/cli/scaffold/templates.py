@@ -297,7 +297,13 @@ from __future__ import annotations
 
 from collections.abc import AsyncIterator
 
-from phzyx.orm import AsyncSession, Session, create_async_engine, create_engine
+from phzyx.orm import (
+    AsyncSession,
+    Session,
+    create_async_engine,
+    create_async_session,
+    create_engine,
+)
 from phzyx.schema.types import Dialect
 
 from app.core.config import settings
@@ -322,8 +328,14 @@ sync_engine = create_engine(settings.database_url)
 
 
 async def get_session() -> AsyncIterator[AsyncSession]:
-    """FastAPI dependency — async session for product routes."""
-    session = AsyncSession(await async_engine.connect(), dialect=DIALECT)
+    """FastAPI dependency — one pooled transaction for the request.
+
+    PostgreSQL ``create_async_engine`` borrows from a pool. The session
+    begins a transaction before the first statement, so ``commit`` and
+    ``rollback`` reach the database. Call ``await async_engine.dispose()``
+    on shutdown.
+    """
+    session = await create_async_session(async_engine)
     try:
         yield session
         await session.commit()
@@ -456,8 +468,11 @@ from phzyx.auth import (
     AuthConfig,
     AuthService,
     HybridUserMap,
+    JwtService,
     OrmAPIKeyStore,
     OrmPasswordResetStore,
+    OrmRateLimiter,
+    OrmRefreshStore,
     OrmSessionStore,
     OrmUserRepository,
     PhzyxAuthz,
@@ -486,12 +501,15 @@ def build_auth_service(session_factory: SessionFactory) -> AuthService:
         csrf_protect=True,
     )
     repo = OrmUserRepository(session_factory=session_factory)
+    refresh = OrmRefreshStore(session_factory=session_factory)
     return AuthService(
         config=cfg,
         sessions=OrmSessionStore(session_factory=session_factory),
         api_keys=OrmAPIKeyStore(session_factory=session_factory),
         password_reset_store=OrmPasswordResetStore(session_factory=session_factory),
+        rate_limiter=OrmRateLimiter(session_factory=session_factory),
         users=HybridUserMap(repo=repo),  # type: ignore[arg-type]
+        jwt=JwtService(secret=secret, refresh_store=refresh),
     )
 
 
@@ -703,11 +721,13 @@ from fastapi import FastAPI
 
 from app.api.routes import api_router
 from app.forge import mount_forge
+from app.forge.db import async_engine
 
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     yield
+    await async_engine.dispose()
 
 
 app = FastAPI(title="{title}", version="0.1.0", lifespan=lifespan)

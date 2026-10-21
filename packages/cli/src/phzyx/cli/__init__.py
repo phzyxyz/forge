@@ -9,7 +9,7 @@ import sys
 from pathlib import Path
 from typing import Any
 
-__version__ = "0.1.6"
+__version__ = "0.1.7"
 
 _EPILOG = """\
 first run (any OS — macOS / Linux / Windows):
@@ -92,7 +92,7 @@ def main(argv: list[str] | None = None) -> int:
     auth_sub = auth.add_subparsers(dest="auth_command")
     su = auth_sub.add_parser("create-superuser", help="create staff superuser")
     su.add_argument("--email", help="real email (not @example.com placeholders)")
-    su.add_argument("--password", help="≥10 chars; not common/placeholder values")
+    su.add_argument("--password", help="≥8 chars; not common/placeholder values")
     su.add_argument("--username", default=None, help="optional; not admin/test/root")
     su.add_argument(
         "--prompt-username",

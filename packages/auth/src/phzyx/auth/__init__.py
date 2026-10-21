@@ -45,6 +45,8 @@ from phzyx.auth.orm_stores import (
     HybridUserMap,
     OrmAPIKeyStore,
     OrmPasswordResetStore,
+    OrmRateLimiter,
+    OrmRefreshStore,
     OrmSessionStore,
     OrmUserRepository,
 )
@@ -58,7 +60,7 @@ from phzyx.auth.service_async import AsyncAuthService
 from phzyx.auth.sessions import MemorySessionStore
 from phzyx.auth.tokens import JwtService, TokenPair
 
-__version__ = "0.1.3"
+__version__ = "0.1.7"
 
 __all__ = [
     "AUTH_MODELS",
@@ -89,6 +91,8 @@ __all__ = [
     "OAuthProviderConfig",
     "OrmAPIKeyStore",
     "OrmPasswordResetStore",
+    "OrmRateLimiter",
+    "OrmRefreshStore",
     "OrmSessionStore",
     "OrmUserRepository",
     "PasswordHasher",

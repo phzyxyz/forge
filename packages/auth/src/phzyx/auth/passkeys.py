@@ -336,13 +336,18 @@ class WebAuthnPasskeyBackend:
         )
 
 
-def default_passkey_backend() -> PasskeyBackend:
+def default_passkey_backend() -> PasskeyBackend | None:
+    """WebAuthn when the extra is installed. Never an HMAC stand-in.
+
+    Callers that want the test HMAC backend pass :class:`HmacPasskeyBackend`
+    explicitly. Production refuses that backend.
+    """
     try:
         import webauthn  # noqa: F401
 
         return WebAuthnPasskeyBackend()
     except ImportError:
-        return HmacPasskeyBackend()
+        return None
 
 
 def sign_hmac_assertion(*, public_key: str, challenge: str, credential_id: str) -> str:

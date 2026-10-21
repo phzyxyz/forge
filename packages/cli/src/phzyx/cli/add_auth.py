@@ -21,8 +21,11 @@ from phzyx.auth import (
     AuthConfig,
     AuthService,
     HybridUserMap,
+    JwtService,
     OrmAPIKeyStore,
     OrmPasswordResetStore,
+    OrmRateLimiter,
+    OrmRefreshStore,
     OrmSessionStore,
     OrmUserRepository,
     PhzyxAuthz,
@@ -55,12 +58,15 @@ def build_auth_service(
         csrf_protect=True,
     )
     repo = OrmUserRepository(session_factory=session_factory)
+    refresh = OrmRefreshStore(session_factory=session_factory)
     return AuthService(
         config=cfg,
         sessions=OrmSessionStore(session_factory=session_factory),
         api_keys=OrmAPIKeyStore(session_factory=session_factory),
         password_reset_store=OrmPasswordResetStore(session_factory=session_factory),
+        rate_limiter=OrmRateLimiter(session_factory=session_factory),
         users=HybridUserMap(repo=repo),  # type: ignore[arg-type]
+        jwt=JwtService(secret=secret, refresh_store=refresh),
     )
 
 

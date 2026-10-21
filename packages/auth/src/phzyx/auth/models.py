@@ -14,7 +14,7 @@ from phzyx.orm import Field, Model
 class AbstractUser(Model):
     """Base user fields for identity + security bookkeeping."""
 
-    id: int = Field(primary_key=True)
+    id: int | None = Field(default=None, primary_key=True)
     email: str = Field(unique=True, index=True)
     username: str | None = Field(default=None, unique=True)
     password_hash: str | None = Field(default=None, admin_exclude=True)
@@ -44,7 +44,7 @@ class User(AbstractUser):
 class Group(Model):
     """Named group / role container."""
 
-    id: int = Field(primary_key=True)
+    id: int | None = Field(default=None, primary_key=True)
     name: str = Field(unique=True)
     slug: str = Field(unique=True, index=True)
 
@@ -56,7 +56,7 @@ class Group(Model):
 class Permission(Model):
     """Permission code e.g. ``posts:create``."""
 
-    id: int = Field(primary_key=True)
+    id: int | None = Field(default=None, primary_key=True)
     code: str = Field(unique=True, index=True)
     label: str = Field(default="")
 
@@ -101,7 +101,7 @@ class UserPermission(Model):
 class AuthSession(Model):
     """Server-side opaque session (cookie value is raw id; only hash stored)."""
 
-    id: int = Field(primary_key=True)
+    id: int | None = Field(default=None, primary_key=True)
     token_hash: str = Field(unique=True, index=True)
     user_id: int = Field(index=True, foreign_key="phzyx_auth_users.id")
     expires_at: datetime = Field()
@@ -119,13 +119,20 @@ class AuthSession(Model):
 class RefreshToken(Model):
     """Rotating refresh token family (JWT recipe)."""
 
-    id: int = Field(primary_key=True)
+    id: int | None = Field(default=None, primary_key=True)
     jti_hash: str = Field(unique=True, index=True)
     family_id: str = Field(index=True)
     user_id: int = Field(index=True, foreign_key="phzyx_auth_users.id")
     expires_at: datetime = Field()
     revoked_at: datetime | None = Field(default=None)
     scopes: str = Field(default="")  # space-separated
+    # Short-lived lost-response receipt. Cleared when the grace window ends
+    # or the family is revoked. Holds the replacement tokens so a retry of
+    # the same refresh token returns the same pair instead of looking like theft.
+    receipt_access: str | None = Field(default=None, admin_exclude=True)
+    receipt_refresh: str | None = Field(default=None, admin_exclude=True)
+    receipt_expires_at: datetime | None = Field(default=None)
+    receipt_expires_in: int | None = Field(default=None)
     created_at: datetime | None = Field(default=None)
 
     class Meta:
@@ -136,7 +143,7 @@ class RefreshToken(Model):
 class APIKey(Model):
     """Hashed API key with scopes."""
 
-    id: int = Field(primary_key=True)
+    id: int | None = Field(default=None, primary_key=True)
     name: str = Field()
     prefix: str = Field(index=True)
     key_hash: str = Field(unique=True)
@@ -155,7 +162,7 @@ class APIKey(Model):
 class PasswordResetToken(Model):
     """Single-use password reset token (hashed)."""
 
-    id: int = Field(primary_key=True)
+    id: int | None = Field(default=None, primary_key=True)
     token_hash: str = Field(unique=True, index=True)
     user_id: int = Field(index=True, foreign_key="phzyx_auth_users.id")
     expires_at: datetime = Field()
@@ -171,7 +178,7 @@ class PasswordResetToken(Model):
 class AuditEvent(Model):
     """Auth audit trail."""
 
-    id: int = Field(primary_key=True)
+    id: int | None = Field(default=None, primary_key=True)
     event_type: str = Field(index=True)
     actor_id: str | None = Field(default=None)
     ip_hash: str | None = Field(default=None)
@@ -186,7 +193,7 @@ class AuditEvent(Model):
 class OAuthAccount(Model):
     """Linked external IdP identity (Google, GitHub, …)."""
 
-    id: int = Field(primary_key=True)
+    id: int | None = Field(default=None, primary_key=True)
     provider: str = Field(index=True)
     provider_user_id: str = Field(index=True)
     user_id: int = Field(index=True, foreign_key="phzyx_auth_users.id")
@@ -202,10 +209,21 @@ class OAuthAccount(Model):
         register = False
 
 
+class RateLimitBucket(Model):
+    """Fixed-window counter for :class:`OrmRateLimiter`. ``bucket`` is the key."""
+
+    bucket: str = Field(primary_key=True)
+    hits: int = Field(default=0)
+
+    class Meta:
+        table = "phzyx_auth_rate_limits"
+        register = False
+
+
 class MFAFactor(Model):
     """Second factor (TOTP / future WebAuthn)."""
 
-    id: int = Field(primary_key=True)
+    id: int | None = Field(default=None, primary_key=True)
     user_id: int = Field(index=True, foreign_key="phzyx_auth_users.id")
     kind: str = Field(default="totp")  # totp | webauthn
     secret_encrypted: str = Field(
@@ -232,6 +250,7 @@ AUTH_MODELS = (
     RefreshToken,
     APIKey,
     PasswordResetToken,
+    RateLimitBucket,
     AuditEvent,
     OAuthAccount,
     MFAFactor,

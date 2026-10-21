@@ -40,6 +40,25 @@ def test_register_login_session_logout(svc: AuthService) -> None:
 
 
 @pytest.mark.unit
+def test_login_with_username_or_email(svc: AuthService) -> None:
+    """Django-style: either email or username works as login id."""
+    svc.register(
+        "boss@phzyx.xyz",
+        "longpassword1",
+        username="boss_user",
+        is_staff=True,
+    )
+    by_email = svc.login("boss@phzyx.xyz", "longpassword1")
+    assert by_email.session_token
+    assert by_email.principal.email == "boss@phzyx.xyz"
+    by_user = svc.login("boss_user", "longpassword1")
+    assert by_user.session_token
+    assert by_user.principal.email == "boss@phzyx.xyz"
+    by_user_ci = svc.login("Boss_User", "longpassword1")
+    assert by_user_ci.principal.email == "boss@phzyx.xyz"
+
+
+@pytest.mark.unit
 def test_login_bad_password(svc: AuthService) -> None:
     svc.register("a@b.co", "longpassword1")
     with pytest.raises(InvalidCredentialsError):

@@ -19,16 +19,19 @@ export function LoginPage() {
     setBusy(true);
     setError(null);
     try {
-      const email = user.trim();
+      // Backend accepts email OR username (Django-style dual login).
+      const identity = user.trim();
       const r = await fetch("/auth/login", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         credentials: "same-origin",
-        body: JSON.stringify({ email, password: pass }),
+        body: JSON.stringify({ email: identity, username: identity, password: pass }),
       });
       if (!r.ok) {
         const msg =
-          r.status === 401 ? "Invalid username or password" : `Sign-in failed (${r.status})`;
+          r.status === 401
+            ? "Invalid email/username or password"
+            : `Sign-in failed (${r.status})`;
         setError(msg);
         toast(msg, "error");
         return;
@@ -46,7 +49,7 @@ export function LoginPage() {
         toast(msg, "error");
         return;
       }
-      setSession(data.email || email, data.csrf_token ?? null);
+      setSession(data.email || identity, data.csrf_token ?? null);
       toast("Signed in");
       setRoute({ page: "overview" });
       await qc.invalidateQueries();
@@ -84,7 +87,7 @@ export function LoginPage() {
           </div>
         )}
         <label className="field">
-          <span>Username</span>
+          <span>Email or username</span>
           <input
             autoComplete="username"
             data-testid="login-username"
@@ -92,6 +95,7 @@ export function LoginPage() {
             onChange={(e) => setUser(e.target.value)}
             required
             autoFocus
+            placeholder="you@domain.com or handle"
           />
         </label>
         <label className="field">

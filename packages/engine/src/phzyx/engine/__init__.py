@@ -43,7 +43,7 @@ from phzyx.engine.policy import DEFAULT_POLICY, SchemaPolicy
 from phzyx.engine.push import PushResult, is_production_like_env, push_schema
 from phzyx.engine.tui_push import confirm_plan, push_with_tui, render_plan_view
 
-__version__ = "0.1.1"
+__version__ = "0.1.7"
 
 __all__ = [
     "CAP_COMPOSITE_PK",

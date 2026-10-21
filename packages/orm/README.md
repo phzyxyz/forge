@@ -43,10 +43,16 @@ async with AsyncSession(await engine.connect(), dialect=Dialect.SQLITE) as sessi
 
 ### Postgres pools (FastAPI)
 
-Prefer **asyncpg.Pool** (or engine pool) sized to concurrency; do **not** open a
-new TCP connection per request. Multi-worker Uvicorn: budget
-`workers × pool_max` under Postgres `max_connections`. Use
-`AsyncSession(..., read_only=True)` on pure-read routes if you want write guards.
+`create_async_engine("postgresql+asyncpg://…")` owns an asyncpg pool.
+`connect()` borrows a connection; `dispose()` closes the pool. A session from
+`create_async_session` begins a transaction before the first statement, so
+`commit` and `rollback` reach PostgreSQL (they are not SQLite-only).
+
+Shut the engine down with the app (`await engine.dispose()`). Multi-worker
+Uvicorn: budget `workers × pool_max` under Postgres `max_connections`.
+`AsyncPostgresPool` is the explicit pool when you need min/max size.
+`AsyncSession(..., read_only=True)` rejects writes, including writes hidden
+in CTEs, once the transaction is open.
 
 ## Sync (mirror)
 

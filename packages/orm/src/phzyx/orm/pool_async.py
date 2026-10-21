@@ -65,7 +65,10 @@ class AsyncPostgresPool:
         async with self._lifecycle_lock:
             if self._pool is not None:
                 return
-            import asyncpg
+            try:
+                import asyncpg
+            except ImportError as exc:
+                raise ImportError("install asyncpg: uv add 'phzyx-forge[postgres]'") from exc
 
             pool = asyncpg.create_pool(
                 self.dsn,
@@ -94,9 +97,33 @@ class AsyncPostgresPool:
                 pool.terminate()
                 raise
 
+    async def checkout(self) -> Any:
+        """Borrow one connection. The connection's ``_phzyx_release`` returns it.
+
+        Opens the pool on first use. Callers that use :meth:`session` or
+        :meth:`connection` should keep using those context managers.
+        """
+        await self.open()
+        pool = self._pool
+        if pool is None:
+            raise RuntimeError("open the PostgreSQL pool before acquiring a connection")
+        conn = await pool.acquire(timeout=self.acquire_timeout)
+
+        async def _release() -> None:
+            try:
+                await pool.release(conn)
+            except Exception:
+                terminate = getattr(conn, "terminate", None)
+                if terminate is not None:
+                    terminate()
+
+        conn._phzyx_release = _release
+        return conn
+
     @asynccontextmanager
     async def connection(self) -> AsyncGenerator[Any, None]:
         """Borrow a raw asyncpg connection; release resets state even on cancellation."""
+        await self.open()
         pool = self._pool
         if pool is None:
             raise RuntimeError("open the PostgreSQL pool before acquiring a connection")

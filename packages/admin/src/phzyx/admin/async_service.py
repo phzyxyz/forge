@@ -6,7 +6,14 @@ from dataclasses import dataclass, field
 from typing import Any
 
 from phzyx.admin.audit import AuditLog
-from phzyx.admin.auth import AllowAll, AllowAllFields, Authz, FieldAuthz, require_authz
+from phzyx.admin.auth import (
+    AllowAll,
+    AllowAllFields,
+    Authz,
+    FieldAuthz,
+    refuse_allow_all,
+    require_authz,
+)
 from phzyx.admin.errors import ConflictError, NotFoundError, ValidationAdminError
 from phzyx.admin.filters import build_where
 from phzyx.admin.identity import decode_identity, encode_identity
@@ -44,6 +51,9 @@ class AsyncAdminService:
     field_authz: FieldAuthz = field(default_factory=AllowAllFields)
     audit: AuditLog | None = None
     storage: Any | None = None
+
+    def __post_init__(self) -> None:
+        refuse_allow_all(self.authz)
 
     def get_resource(self, name: str) -> ResourceConfig:
         if name not in self.resources:

@@ -5,7 +5,7 @@ from __future__ import annotations
 from collections.abc import Callable
 from typing import Any
 
-from phzyx.admin.auth import AllowAll, Authz
+from phzyx.admin.auth import AllowAll, Authz, refuse_allow_all
 from phzyx.admin.errors import AdminError
 from phzyx.admin.resource import ResourceConfig, infer_resource
 from phzyx.admin.service import AdminService
@@ -32,6 +32,7 @@ class AdminBoardConfig:
         self.theme = normalize_theme(theme)
         self.prefix = prefix.rstrip("/") or "/admin"
         self.authz = authz or AllowAll()
+        refuse_allow_all(self.authz)
         self.session_factory = session_factory
         res_list = list(resources or [])
         for m in models or []:

@@ -108,7 +108,7 @@ class AsyncSession:
             await self.close()
 
     async def close(self) -> None:
-        """Roll back session-owned work; close only an owned connection."""
+        """Roll back session-owned work; release a pooled connection or close an owned one."""
         if self._closed:
             return
         try:
@@ -116,10 +116,26 @@ class AsyncSession:
                 await self.rollback()
         finally:
             self._closed = True
-            if self.owns_connection and hasattr(self._conn, "close"):
+            release = getattr(self._conn, "_phzyx_release", None)
+            if release is not None:
+                self._conn._phzyx_release = None
+                await release()
+            elif self.owns_connection and hasattr(self._conn, "close"):
                 result = self._conn.close()
                 if hasattr(result, "__await__"):
                     await result
+
+    async def _ensure_transaction(self) -> None:
+        """Start a PostgreSQL transaction before the first statement.
+
+        ``async with`` already calls :meth:`begin`. Callers that construct a
+        session and later ``commit`` — the FastAPI scaffold — do not. Without
+        this, asyncpg autocommits each statement and ``commit`` is a no-op.
+        """
+        if self._closed or self._in_tx or self._savepoint_depth:
+            return
+        if self.dialect is Dialect.POSTGRES and self.manage_transaction:
+            await self.begin()
 
     async def commit(self) -> None:
         """Commit only a transaction this session owns."""
@@ -184,6 +200,7 @@ class AsyncSession:
 
     async def fetch_native(self, sql: str, *params: Any) -> list[dict[str, Any]]:
         """Read PostgreSQL rows using native $n parameters, with no SQL rewriting."""
+        await self._ensure_transaction()
         if self.dialect is not Dialect.POSTGRES:
             raise OrmError("native SQL requires PostgreSQL")
         if self.read_only and not self._in_tx:
@@ -197,6 +214,7 @@ class AsyncSession:
         Read-only PostgreSQL transactions enforce read-only behavior in the
         database, including writes concealed in CTEs or function calls.
         """
+        await self._ensure_transaction()
         if self.dialect is not Dialect.POSTGRES:
             raise OrmError("native SQL requires PostgreSQL")
         if self.read_only and not self._in_tx:
@@ -204,6 +222,7 @@ class AsyncSession:
         return await self._conn.execute(sql, *params)
 
     async def add(self, instance: Model) -> Model:
+        await self._ensure_transaction()
         self._ensure_writable()
         data, omitted_pk = prepare_insert_values(instance)
         use_returning = self.dialect is Dialect.POSTGRES
@@ -249,10 +268,12 @@ class AsyncSession:
         return type(instance).model_validate(base)
 
     async def get(self, model: type[M], key: Any) -> M | None:
+        await self._ensure_transaction()
         frag = build_select_by_pk(model, key, dialect=self.dialect)
         return await self._fetch_one(model, frag.sql, frag.params)
 
     async def delete(self, instance: Model) -> None:
+        await self._ensure_transaction()
         self._ensure_writable()
         info = get_table_info(type(instance))
         data = model_to_row(instance)
@@ -261,6 +282,7 @@ class AsyncSession:
         await self.execute(frag.sql, frag.params)
 
     async def update(self, instance: Model, **values: Any) -> Model:
+        await self._ensure_transaction()
         self._ensure_writable()
         info = get_table_info(type(instance))
         data = model_to_row(instance)
@@ -316,6 +338,7 @@ class AsyncSession:
         Returns the updated row, or ``None`` if no row matched.
         Models with optimistic columns must use :meth:`update` instead.
         """
+        await self._ensure_transaction()
         self._ensure_writable()
         reject_optimistic_for_by_pk(model)
         pk_map = primary_key_map(model, key)
@@ -354,6 +377,7 @@ class AsyncSession:
         where: Sequence[Filter] = (),
     ) -> int:
         """Efficient COUNT(*) — does not load rows."""
+        await self._ensure_transaction()
         frag = build_count(model, where=where, dialect=self.dialect)
         if self.dialect is Dialect.SQLITE:
             cur = await self._conn.execute(frag.sql, adapt_sqlite_params(frag.params))
@@ -374,6 +398,7 @@ class AsyncSession:
         cursor_after: bool = True,
         for_update: bool | str = False,
     ) -> list[M]:
+        await self._ensure_transaction()
         frag = build_select(
             model,
             where=where,
@@ -444,6 +469,7 @@ class AsyncSession:
 
     async def execute(self, sql: str, params: list[Any] | None = None) -> int:
         """Execute a parameterized statement; return rowcount or ``-1`` if unknown."""
+        await self._ensure_transaction()
         # Allow SELECT via execute on read-only; block obvious writes.
         if self.read_only:
             head = sql.lstrip().split(None, 1)[0].upper() if sql.strip() else ""
@@ -502,5 +528,15 @@ class AsyncSession:
 
 
 async def create_async_session(engine: AsyncEngine) -> AsyncSession:
+    """Open a session that commits and rolls back, including pooled PostgreSQL.
+
+    A pooled connection is released on :meth:`AsyncSession.close`, not closed.
+    """
     conn = await engine.connect()
-    return AsyncSession(conn, dialect=engine.dialect)
+    pooled = getattr(conn, "_phzyx_release", None) is not None
+    return AsyncSession(
+        conn,
+        dialect=engine.dialect,
+        owns_connection=not pooled,
+        manage_transaction=True,
+    )

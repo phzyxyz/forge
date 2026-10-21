@@ -71,7 +71,7 @@ from phzyx.admin.widgets import CountWidget, resource_count_widgets
 
 __path__ = extend_path(__path__, __name__)
 
-__version__ = "0.1.1"
+__version__ = "0.1.7"
 
 __all__ = [
     "BOUNDED_RSS_NOTE",

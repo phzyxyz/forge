@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import os
 from typing import Any, Protocol, runtime_checkable
 
 from phzyx.admin.errors import ForbiddenError
@@ -23,10 +24,25 @@ class Authz(Protocol):
 
 
 class AllowAll:
-    """Dev default: allow everything (warn in production)."""
+    """Dev default: allow everything. Refused when the process is production."""
 
     def authorize(self, principal: Any | None, action: str, resource: str) -> bool:
         return True
+
+
+def production_environment() -> bool:
+    """True for ``PHZYX_ENV=production`` or ``PHZYX_PRODUCTION=1``."""
+    env = (os.environ.get("PHZYX_ENV") or os.environ.get("ENV") or "").lower()
+    flag = os.environ.get("PHZYX_PRODUCTION", "").lower()
+    return env in {"prod", "production"} or flag in {"1", "true", "yes"}
+
+
+def refuse_allow_all(authz: Any) -> None:
+    """Raise if a production process is using :class:`AllowAll`."""
+    if isinstance(authz, AllowAll) and production_environment():
+        raise RuntimeError(
+            "AllowAll authz is refused in production. Pass a real policy (for example PhzyxAuthz)."
+        )
 
 
 class DenyWrites:

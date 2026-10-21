@@ -1053,7 +1053,7 @@ requires-dist = [
 
 [[package]]
 name = "phzyx-auth"
-version = "0.1.6"
+version = "0.1.7"
 source = { editable = "packages/auth" }
 dependencies = [
     { name = "argon2-cffi" },

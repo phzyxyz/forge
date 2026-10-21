@@ -15,7 +15,7 @@ _HASHER = _Argon2(time_cost=3, memory_cost=65536, parallelism=4, hash_len=32, sa
 class PasswordHasher:
     """Configurable Argon2id hasher (inject for tests)."""
 
-    min_length: int = 10
+    min_length: int = 8
     # Reject common / placeholder passwords (disable only in unit tests).
     reject_placeholders: bool = True
 

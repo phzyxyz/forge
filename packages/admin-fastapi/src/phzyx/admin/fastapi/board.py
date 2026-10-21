@@ -2,14 +2,12 @@
 
 from __future__ import annotations
 
-import os
-import warnings
 from collections.abc import Callable, Sequence
 from pathlib import Path
 from typing import Any
 
 from phzyx.admin.audit import AuditLog
-from phzyx.admin.auth import AllowAll, AllowAllFields, Authz, FieldAuthz
+from phzyx.admin.auth import AllowAll, AllowAllFields, Authz, FieldAuthz, refuse_allow_all
 from phzyx.admin.branding import BrandingConfig
 from phzyx.admin.layouts import LayoutStore
 from phzyx.admin.media import MediaLibrary
@@ -100,13 +98,7 @@ class AdminBoard:
             database_url=database_url,
         )
 
-        if isinstance(self.authz, AllowAll) and _is_prod():
-            # Security baseline: warn if no auth in production-like env
-            warnings.warn(
-                "AdminBoard using AllowAll authz in production-like environment",
-                UserWarning,
-                stacklevel=2,
-            )
+        refuse_allow_all(self.authz)
 
         router = create_admin_router(self)
         app.include_router(router, prefix=f"{self.prefix}/api/v1")
@@ -180,11 +172,3 @@ def _spa_static_dir() -> Path | None:
         if c.is_dir() and (c / "index.html").exists():
             return c
     return None
-
-
-def _is_prod() -> bool:
-    env = (os.environ.get("PHZYX_ENV") or os.environ.get("ENV") or "").lower()
-    return env in {"prod", "production"} or os.environ.get("PHZYX_PRODUCTION", "") in {
-        "1",
-        "true",
-    }

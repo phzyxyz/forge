@@ -4,10 +4,12 @@ from __future__ import annotations
 
 from dataclasses import dataclass, field
 from datetime import UTC, datetime, timedelta
+from threading import RLock
 from typing import Any
 
 import jwt
 from phzyx.auth.crypto import hash_token
+from phzyx.auth.ids import uuid7
 from phzyx.auth.password import generate_token
 from phzyx.auth.principal import Principal
 
@@ -20,12 +22,21 @@ class TokenPair:
     expires_in: int = 900
 
 
+def _as_utc(value: datetime | None) -> datetime | None:
+    if value is None:
+        return None
+    if value.tzinfo is None:
+        return value.replace(tzinfo=UTC)
+    return value.astimezone(UTC)
+
+
 @dataclass
 class MemoryRefreshStore:
-    """In-memory refresh token families for tests."""
+    """In-memory refresh token families for tests and single-process dev."""
 
     _by_jti: dict[str, dict[str, Any]] = field(default_factory=dict)
     _family_revoked: set[str] = field(default_factory=set)
+    _lock: RLock = field(default_factory=RLock)
 
     def save(
         self,
@@ -37,52 +48,111 @@ class MemoryRefreshStore:
         scopes: str,
         secret: str,
     ) -> None:
-        self._by_jti[hash_token(jti, secret=secret)] = {
-            "family_id": family_id,
-            "user_id": user_id,
-            "expires_at": expires_at,
-            "scopes": scopes,
-            "revoked": False,
-            "raw_jti": jti,
-        }
+        with self._lock:
+            self._by_jti[hash_token(jti, secret=secret)] = {
+                "family_id": family_id,
+                "user_id": user_id,
+                "expires_at": expires_at,
+                "scopes": scopes,
+                "revoked": False,
+                "raw_jti": jti,
+                "receipt_access": None,
+                "receipt_refresh": None,
+                "receipt_until": None,
+                "receipt_expires_in": None,
+            }
+
+    def get(self, refresh_token: str, *, secret: str) -> dict[str, Any] | None:
+        with self._lock:
+            rec = self._by_jti.get(hash_token(refresh_token, secret=secret))
+            if rec is None:
+                return None
+            family_revoked = rec["family_id"] in self._family_revoked
+            receipt = not family_revoked
+            return {
+                "family_id": rec["family_id"],
+                "user_id": rec["user_id"],
+                "expires_at": rec["expires_at"],
+                "scopes": rec["scopes"],
+                "revoked": bool(rec["revoked"] or family_revoked),
+                "receipt_access": rec.get("receipt_access") if receipt else None,
+                "receipt_refresh": rec.get("receipt_refresh") if receipt else None,
+                "receipt_until": rec.get("receipt_until") if receipt else None,
+                "receipt_expires_in": rec.get("receipt_expires_in") if receipt else None,
+            }
+
+    def mark_consumed(self, refresh_token: str, *, secret: str) -> bool:
+        with self._lock:
+            rec = self._by_jti.get(hash_token(refresh_token, secret=secret))
+            if rec is None or rec["revoked"] or rec["family_id"] in self._family_revoked:
+                return False
+            rec["revoked"] = True
+            return True
+
+    def save_receipt(
+        self,
+        refresh_token: str,
+        *,
+        secret: str,
+        access_token: str,
+        refresh_token_next: str,
+        expires_in: int,
+        until: datetime,
+    ) -> None:
+        with self._lock:
+            rec = self._by_jti.get(hash_token(refresh_token, secret=secret))
+            if rec is None:
+                return
+            rec["receipt_access"] = access_token
+            rec["receipt_refresh"] = refresh_token_next
+            rec["receipt_expires_in"] = expires_in
+            rec["receipt_until"] = until
 
     def consume(self, refresh_token: str, *, secret: str) -> dict[str, Any] | None:
-        h = hash_token(refresh_token, secret=secret)
-        rec = self._by_jti.get(h)
+        rec = self.get(refresh_token, secret=secret)
         if rec is None or rec["revoked"]:
             return None
-        if rec["family_id"] in self._family_revoked:
+        exp = _as_utc(rec["expires_at"])
+        if exp is None or exp < datetime.now(UTC):
             return None
-        now = datetime.now(UTC)
-        exp = rec["expires_at"]
-        n = now if getattr(exp, "tzinfo", None) else now.replace(tzinfo=None)
-        if exp < n:
+        if not self.mark_consumed(refresh_token, secret=secret):
             return None
-        rec["revoked"] = True
         return rec
 
     def revoke_family(self, family_id: str) -> None:
-        self._family_revoked.add(family_id)
-        for rec in self._by_jti.values():
-            if rec["family_id"] == family_id:
-                rec["revoked"] = True
+        with self._lock:
+            self._family_revoked.add(family_id)
+            for rec in self._by_jti.values():
+                if rec["family_id"] == family_id:
+                    rec["revoked"] = True
+                    rec["receipt_access"] = None
+                    rec["receipt_refresh"] = None
+                    rec["receipt_until"] = None
+                    rec["receipt_expires_in"] = None
 
 
 @dataclass
 class JwtService:
-    """Issue and verify access JWTs; rotate refresh via MemoryRefreshStore."""
+    """Issue and verify access JWTs; rotate refresh inside one family.
+
+    A retry of the same refresh token inside ``refresh_grace`` seconds
+    returns the pair already issued (lost-response receipt). After that
+    window, presenting the consumed token revokes the family.
+    """
 
     secret: str
     issuer: str = "phzyx-auth"
     access_ttl: int = 900
     refresh_ttl: int = 60 * 60 * 24 * 30
-    refresh_store: MemoryRefreshStore = field(default_factory=MemoryRefreshStore)
+    refresh_grace: int = 30
+    refresh_store: Any = field(default_factory=MemoryRefreshStore)
 
     def issue_pair(
         self,
         principal: Principal,
         *,
         scopes: list[str] | None = None,
+        family_id: str | None = None,
     ) -> TokenPair:
         now = datetime.now(UTC)
         scope_list = scopes if scopes is not None else sorted(principal.scopes)
@@ -104,7 +174,7 @@ class JwtService:
             algorithm="HS256",
         )
         jti = generate_token(24)
-        family = generate_token(16)
+        family = family_id or uuid7()
         self.refresh_store.save(
             jti=jti,
             family_id=family,
@@ -142,17 +212,73 @@ class JwtService:
             auth_method="jwt",
         )
 
+    def _receipt_still_valid(self, record: dict[str, Any], now: datetime) -> TokenPair | None:
+        """Pair saved for a lost response, if the grace window is still open.
+
+        The first successful refresh stores the new access token and the new
+        refresh token on the old row. A retry of that same old token returns
+        those values instead of minting another pair or treating the caller
+        as a thief. After ``receipt_until`` this returns None.
+        """
+        access_token = record.get("receipt_access")
+        next_refresh_token = record.get("receipt_refresh")
+        valid_until = _as_utc(record.get("receipt_until"))
+        if not access_token or not next_refresh_token:
+            return None
+        if valid_until is None or valid_until < now:
+            return None
+        expires_in = record.get("receipt_expires_in") or self.access_ttl
+        return TokenPair(
+            access_token=str(access_token),
+            refresh_token=str(next_refresh_token),
+            expires_in=int(expires_in),
+        )
+
     def refresh(self, refresh_token: str, *, principal_loader) -> TokenPair:
-        """Rotate refresh; principal_loader(user_id) -> Principal."""
-        rec = self.refresh_store.consume(refresh_token, secret=self.secret)
-        if rec is None:
-            # possible theft: if unknown, still safe; if reuse of revoked, revoke family
+        """Rotate refresh inside the same family.
+
+        ``principal_loader(user_id)`` returns a :class:`Principal`. A second
+        presentation of this same token inside the grace window returns the
+        pair from the first call. A later presentation revokes the family.
+        """
+        now = datetime.now(UTC)
+        record = self.refresh_store.get(refresh_token, secret=self.secret)
+        if record is None:
             raise ValueError("invalid_refresh")
-        principal = principal_loader(rec["user_id"])
-        scopes = [s for s in (rec.get("scopes") or "").split() if s]
-        # new family continues same family id for tracking — issue new jti same family
-        pair = self.issue_pair(principal, scopes=scopes)
-        # re-bind new refresh to same family
-        # issue_pair creates new family; fix by re-saving with old family
-        # simpler: accept new family on each refresh (still rotates jti)
+
+        # Already consumed. Replay the saved pair, or revoke the family.
+        if record["revoked"]:
+            replayed = self._receipt_still_valid(record, now)
+            if replayed is not None:
+                return replayed
+            self.refresh_store.revoke_family(record["family_id"])
+            raise ValueError("invalid_refresh")
+
+        expires_at = _as_utc(record["expires_at"])
+        if expires_at is None or expires_at < now:
+            raise ValueError("invalid_refresh")
+
+        consumed = self.refresh_store.mark_consumed(refresh_token, secret=self.secret)
+        if not consumed:
+            # Lost the race with another request that consumed it first.
+            raced = self.refresh_store.get(refresh_token, secret=self.secret)
+            if raced is not None:
+                replayed = self._receipt_still_valid(raced, now)
+                if replayed is not None:
+                    return replayed
+                self.refresh_store.revoke_family(raced["family_id"])
+            raise ValueError("invalid_refresh")
+
+        principal = principal_loader(record["user_id"])
+        scope_text = record.get("scopes") or ""
+        scopes = [scope for scope in scope_text.split() if scope]
+        pair = self.issue_pair(principal, scopes=scopes, family_id=record["family_id"])
+        self.refresh_store.save_receipt(
+            refresh_token,
+            secret=self.secret,
+            access_token=pair.access_token,
+            refresh_token_next=pair.refresh_token,
+            expires_in=pair.expires_in,
+            until=now + timedelta(seconds=self.refresh_grace),
+        )
         return pair

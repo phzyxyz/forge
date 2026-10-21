@@ -14,6 +14,33 @@ Monorepo still splits schema/engine/orm/admin/cli for development; those modules
 
 ## [Unreleased]
 
+## [0.1.7] — unreleased
+
+### Fixed
+
+- **Async PostgreSQL transactions.** `AsyncSession.commit` / `rollback` open
+  and finish an asyncpg transaction, including when the caller does not use
+  `async with`. `create_async_engine("postgresql+asyncpg://…")` borrows from
+  a pool and `dispose()` closes it. The scaffold uses that session and
+  disposes the engine on shutdown.
+- **Migrations.** `migrate_apply` no longer splits on semicolons inside
+  strings, quoted identifiers, comments, or dollar-quoted function bodies.
+  Downgrade files stay hand-written stubs.
+- **Auth ids.** ORM stores no longer allocate `max+1` over a 10,000-row
+  scan. Integer primary keys are database identity. Refresh families are
+  UUID v7 and stay one family across rotation.
+- **Refresh receipts.** Retrying the same refresh token within 30 seconds
+  returns the pair already issued. A later retry revokes the family.
+- **Passkeys.** A missing `webauthn` extra no longer falls back to HMAC.
+  Production refuses an HMAC passkey backend.
+- **Production auth** refuses in-memory sessions, users, API keys, rate
+  limits, password-reset tokens, and refresh tokens. The scaffold wires the
+  ORM stores, including the rate-limit table.
+- **AdminBoard** refuses `AllowAll` when `PHZYX_ENV=production` (or
+  `PHZYX_PRODUCTION=1`) instead of only warning.
+- Internal module versions that shipped inside the 0.1.6 wheel as `0.1.1`
+  now report `0.1.7`.
+
 ## [0.1.6] — 2026-07-30
 
 ### Added
