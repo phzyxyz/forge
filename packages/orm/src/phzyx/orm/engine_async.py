@@ -19,9 +19,10 @@ class AsyncEngine:
     async def connect(self) -> Any:
         """Open one connection.
 
-        PostgreSQL engines borrow from a pool and mark the connection with
-        ``_phzyx_release``. :meth:`dispose` closes that pool. SQLite still
-        opens a single driver connection.
+        PostgreSQL engines borrow from a pool. The object returned here
+        carries ``_phzyx_release``; the asyncpg proxy itself rejects extra
+        attributes. :meth:`dispose` closes that pool. SQLite still opens a
+        single driver connection.
         """
         if self._pool is not None:
             return await self._pool.checkout()

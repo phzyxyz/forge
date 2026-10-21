@@ -12,6 +12,17 @@ from phzyx.orm.session_async import AsyncSession
 from phzyx.schema.types import Dialect
 
 
+class BorrowedConnection:
+    """asyncpg's pool proxy rejects extra attributes. The release hook lives here."""
+
+    def __init__(self, connection: Any, release: Any) -> None:
+        self._connection = connection
+        self._phzyx_release = release
+
+    def __getattr__(self, name: str) -> Any:
+        return getattr(self._connection, name)
+
+
 class AsyncPostgresPool:
     """Own a bounded pool; borrowed sessions never close a physical connection.
 
@@ -98,10 +109,11 @@ class AsyncPostgresPool:
                 raise
 
     async def checkout(self) -> Any:
-        """Borrow one connection. The connection's ``_phzyx_release`` returns it.
+        """Borrow one connection.
 
-        Opens the pool on first use. Callers that use :meth:`session` or
-        :meth:`connection` should keep using those context managers.
+        Opens the pool on first use. The returned wrapper holds
+        ``_phzyx_release``. asyncpg's pool proxy has no ``__dict__``, so
+        writing that attribute on the connection raises ``AttributeError``.
         """
         await self.open()
         pool = self._pool
@@ -117,8 +129,7 @@ class AsyncPostgresPool:
                 if terminate is not None:
                     terminate()
 
-        conn._phzyx_release = _release
-        return conn
+        return BorrowedConnection(conn, _release)
 
     @asynccontextmanager
     async def connection(self) -> AsyncGenerator[Any, None]:

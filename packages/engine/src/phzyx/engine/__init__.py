@@ -60,7 +60,7 @@ from phzyx.orm import (
 # phzyx.engine.create_sync_engine was the name the scaffold guessed.
 create_sync_engine = create_engine
 
-__version__ = "0.1.8"
+__version__ = "0.1.9"
 
 __all__ = [
     "CAP_COMPOSITE_PK",

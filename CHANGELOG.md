@@ -14,7 +14,17 @@ Monorepo still splits schema/engine/orm/admin/cli for development; those modules
 
 ## [Unreleased]
 
-## [0.1.8] — unreleased
+## [0.1.9] — 2026-10-21
+
+### Fixed
+
+- **Async PostgreSQL checkout.** `checkout` no longer writes
+  `_phzyx_release` onto asyncpg's pool proxy. That proxy has no
+  `__dict__` and raised `AttributeError`. The release hook lives on a
+  small wrapper. `AsyncSession.close` still calls it, and the connection
+  goes back to the pool.
+
+## [0.1.8] — 2026-10-21
 
 ### Fixed
 
