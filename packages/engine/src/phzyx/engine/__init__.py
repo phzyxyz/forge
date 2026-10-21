@@ -34,6 +34,7 @@ from phzyx.engine.migrate import (
     list_migration_files,
     migrate_apply,
     migrate_status,
+    render_downgrade_sql,
     render_downgrade_stub,
     render_upgrade_sql,
 )
@@ -43,7 +44,23 @@ from phzyx.engine.policy import DEFAULT_POLICY, SchemaPolicy
 from phzyx.engine.push import PushResult, is_production_like_env, push_schema
 from phzyx.engine.tui_push import confirm_plan, push_with_tui, render_plan_view
 
-__version__ = "0.1.7"
+# The scaffold and the qualification both looked these up on phzyx.engine.
+# The implementation stays in phzyx.orm. These names are the same objects.
+from phzyx.orm import (
+    AsyncEngine,
+    AsyncSession,
+    Engine,
+    Session,
+    create_async_engine,
+    create_async_session,
+    create_engine,
+    create_session,
+)
+
+# phzyx.engine.create_sync_engine was the name the scaffold guessed.
+create_sync_engine = create_engine
+
+__version__ = "0.1.8"
 
 __all__ = [
     "CAP_COMPOSITE_PK",
@@ -77,8 +94,17 @@ __all__ = [
     "build_plan",
     "capabilities_for",
     "confirm_plan",
+    "AsyncEngine",
+    "AsyncSession",
+    "Engine",
+    "Session",
     "connect",
+    "create_async_engine",
+    "create_async_session",
+    "create_engine",
     "create_migration",
+    "create_session",
+    "create_sync_engine",
     "diff_manifests",
     "ensure_history_table",
     "is_production_like_env",
@@ -92,6 +118,7 @@ __all__ = [
     "parse_version",
     "push_schema",
     "push_with_tui",
+    "render_downgrade_sql",
     "render_downgrade_stub",
     "render_op",
     "render_plan_view",

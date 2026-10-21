@@ -590,7 +590,13 @@ class AuthService:
             self.audit.record("api_key.revoke", actor_id=user_id, key_id=key_id)
         return ok
 
-    def refresh_jwt(self, refresh_token: str) -> TokenPair:
+    def refresh_jwt(self, refresh_token: str, *, request_id: str | None = None) -> TokenPair:
+        """Rotate a refresh token.
+
+        ``request_id`` is the ``Refresh-Request-Id`` header. The same id
+        returns the pair from the first call. A different id, or no id,
+        on a token that was already used revokes the family.
+        """
         assert self.jwt is not None
 
         def loader(uid: str) -> Principal:
@@ -600,7 +606,11 @@ class AuthService:
             return self._principal(user, method="jwt")
 
         try:
-            return self.jwt.refresh(refresh_token, principal_loader=loader)
+            return self.jwt.refresh(
+                refresh_token,
+                principal_loader=loader,
+                request_id=request_id,
+            )
         except ValueError as exc:
             raise InvalidCredentialsError("Invalid refresh token") from exc
 

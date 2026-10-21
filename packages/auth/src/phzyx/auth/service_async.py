@@ -73,5 +73,14 @@ class AsyncAuthService:
     async def revoke_api_key(self, key_id: str, *, user_id: str | None = None) -> bool:
         return await asyncio.to_thread(lambda: self.inner.revoke_api_key(key_id, user_id=user_id))
 
-    async def refresh_jwt(self, refresh_token: str) -> TokenPair:
-        return await asyncio.to_thread(self.inner.refresh_jwt, refresh_token)
+    async def refresh_jwt(
+        self,
+        refresh_token: str,
+        *,
+        request_id: str | None = None,
+    ) -> TokenPair:
+        return await asyncio.to_thread(
+            self.inner.refresh_jwt,
+            refresh_token,
+            request_id=request_id,
+        )

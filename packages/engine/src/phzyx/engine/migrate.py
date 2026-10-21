@@ -11,8 +11,10 @@ from typing import Any
 
 from phzyx.engine.apply_ops import render_op
 from phzyx.engine.errors import MigrationError
+from phzyx.engine.ops import SchemaOp
 from phzyx.engine.plan import SchemaPlan
 from phzyx.engine.sql_split import split_statements
+from phzyx.schema.ddl import quote_ident
 from phzyx.schema.types import Dialect
 
 HISTORY_TABLE = "_phzyx_migrations"
@@ -107,19 +109,85 @@ def render_upgrade_sql(plan: SchemaPlan, *, dialect: Dialect | str) -> str:
     return "\n".join(parts).rstrip() + "\n"
 
 
-def render_downgrade_stub(plan: SchemaPlan) -> str:
-    """Best-effort stub only — never claims automatic reverse."""
+def render_downgrade_sql(plan: SchemaPlan, *, dialect: Dialect | str = Dialect.SQLITE) -> str:
+    """Reverse of a Forge-generated plan, as SQL.
+
+    Creating a table, adding a column, adding an index, or renaming a
+    column has a mechanical reverse. Those statements are real DDL, in
+    the opposite order from the upgrade.
+
+    A forward drop of a table, column, or index throws the definition
+    away. This file cannot put that data back. Those operations are
+    listed as comments, not as pretend ``UNDO`` statements.
+    """
+    resolved = Dialect(dialect) if not isinstance(dialect, Dialect) else dialect
+    statements: list[str] = []
+    not_reversible: list[str] = []
+    for operation in reversed(plan.ops):
+        statement, reason = _reverse_operation(operation, dialect=resolved)
+        if statement is not None:
+            statements.append(statement)
+        if reason is not None:
+            not_reversible.append(reason)
+
     lines = [
-        "-- Phzyx migration downgrade STUB",
-        "-- WARNING: reverse is not automatic. Review and write manually.",
-        "-- Forward plan was:",
+        "-- Phzyx migration downgrade",
+        "-- Reverses create, add, and rename operations from the forward plan.",
+        "-- A dropped table, column, or index is not recovered here.",
+        "",
     ]
-    for op in plan.ops:
-        lines.append(f"--   {op.describe()}")
-    lines.append("")
-    lines.append("-- TODO: author reverse DDL if needed")
-    lines.append("")
-    return "\n".join(lines)
+    for reason in not_reversible:
+        lines.append(f"-- not reversible: {reason}")
+    if not_reversible:
+        lines.append("")
+    if not statements and not not_reversible:
+        lines.append("-- empty plan")
+        lines.append("")
+    for statement in statements:
+        lines.append(statement + ";")
+        lines.append("")
+    return "\n".join(lines).rstrip() + "\n"
+
+
+def render_downgrade_stub(plan: SchemaPlan, *, dialect: Dialect | str = Dialect.SQLITE) -> str:
+    """Old name for :func:`render_downgrade_sql`.
+
+    Callers that still say "stub" get the reverse SQL, not a comment file.
+    """
+    return render_downgrade_sql(plan, dialect=dialect)
+
+
+def _reverse_operation(operation: SchemaOp, *, dialect: Dialect) -> tuple[str | None, str | None]:
+    """Return ``(sql, why_not)``. One of the two is None."""
+    table_name = quote_ident(operation.table, dialect)
+    if operation.kind == "create_table":
+        return f"DROP TABLE {table_name}", None
+    if operation.kind == "add_column" and operation.column is not None:
+        column_name = quote_ident(operation.column.name, dialect)
+        return f"ALTER TABLE {table_name} DROP COLUMN {column_name}", None
+    if operation.kind == "add_index" and operation.index is not None:
+        index_name = quote_ident(operation.index.name, dialect)
+        if dialect is Dialect.MSSQL:
+            return f"DROP INDEX {index_name} ON {table_name}", None
+        return f"DROP INDEX {index_name}", None
+    if operation.kind == "rename_column" and operation.column_name and operation.new_column_name:
+        current_name = quote_ident(operation.new_column_name, dialect)
+        original_name = quote_ident(operation.column_name, dialect)
+        if dialect is Dialect.MSSQL:
+            # sp_rename wants the raw name inside a string. quote_ident
+            # still rejects a table name that is not a plain identifier.
+            quote_ident(operation.table, dialect)
+            return (
+                f"EXEC sp_rename '{operation.table}.{operation.new_column_name}', "
+                f"'{operation.column_name}', 'COLUMN'",
+                None,
+            )
+        return f"ALTER TABLE {table_name} RENAME COLUMN {current_name} TO {original_name}", None
+    if operation.kind in {"drop_table", "drop_column", "drop_index", "archive_column"}:
+        return None, operation.describe()
+    if operation.kind == "add_foreign_key":
+        return None, operation.describe() + " (the forward plan does not record the constraint name)"
+    return None, operation.describe()
 
 
 def create_migration(
@@ -129,7 +197,7 @@ def create_migration(
     dialect: Dialect | str,
     name: str = "auto",
 ) -> MigrationFile:
-    """Write timestamped upgrade.sql (+ downgrade stub) under migrations_dir."""
+    """Write timestamped upgrade.sql and downgrade.sql under migrations_dir."""
     root = Path(migrations_dir)
     root.mkdir(parents=True, exist_ok=True)
     stamp = datetime.now(UTC).strftime("%Y%m%d%H%M%S")
@@ -139,7 +207,10 @@ def create_migration(
     folder.mkdir(parents=True, exist_ok=False)
     upgrade = render_upgrade_sql(plan, dialect=dialect)
     (folder / "upgrade.sql").write_text(upgrade, encoding="utf-8")
-    (folder / "downgrade.sql").write_text(render_downgrade_stub(plan), encoding="utf-8")
+    (folder / "downgrade.sql").write_text(
+        render_downgrade_sql(plan, dialect=dialect),
+        encoding="utf-8",
+    )
     return MigrationFile(
         version=version,
         path=folder / "upgrade.sql",

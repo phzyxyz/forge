@@ -16,20 +16,7 @@ from __future__ import annotations
 import os
 from collections.abc import Callable
 
-from phzyx.auth import (
-    AUTH_MODELS,
-    AuthConfig,
-    AuthService,
-    HybridUserMap,
-    JwtService,
-    OrmAPIKeyStore,
-    OrmPasswordResetStore,
-    OrmRateLimiter,
-    OrmRefreshStore,
-    OrmSessionStore,
-    OrmUserRepository,
-    PhzyxAuthz,
-)
+from phzyx.auth import AUTH_MODELS, AuthService, PhzyxAuthz, durable_auth_service
 from phzyx.auth.adapters.fastapi import mount_auth
 from phzyx.orm.session_sync import Session
 from phzyx.schema.types import Dialect
@@ -42,7 +29,12 @@ def build_auth_service(
     *,
     dialect: Dialect = Dialect.SQLITE,
 ) -> AuthService:
-    """ORM-backed AuthService (sessions, users, API keys, password reset)."""
+    """ORM-backed AuthService (sessions, users, API keys, password reset).
+
+    ``dialect`` is unused. The session factory already carries it. The
+    argument stays so existing callers that pass it do not break.
+    """
+    del dialect
     secret = os.environ.get("PHZYX_AUTH_SECRET", "")
     if not secret:
         secret = "dev-only-insecure-secret-min-32b!!"
@@ -51,22 +43,10 @@ def build_auth_service(
         "true",
         "yes",
     }
-    cfg = AuthConfig(
+    return durable_auth_service(
+        session_factory,
         secret=secret,
         production=production,
-        cookie_secure=production,
-        csrf_protect=True,
-    )
-    repo = OrmUserRepository(session_factory=session_factory)
-    refresh = OrmRefreshStore(session_factory=session_factory)
-    return AuthService(
-        config=cfg,
-        sessions=OrmSessionStore(session_factory=session_factory),
-        api_keys=OrmAPIKeyStore(session_factory=session_factory),
-        password_reset_store=OrmPasswordResetStore(session_factory=session_factory),
-        rate_limiter=OrmRateLimiter(session_factory=session_factory),
-        users=HybridUserMap(repo=repo),  # type: ignore[arg-type]
-        jwt=JwtService(secret=secret, refresh_store=refresh),
     )
 
 

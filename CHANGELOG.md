@@ -14,7 +14,35 @@ Monorepo still splits schema/engine/orm/admin/cli for development; those modules
 
 ## [Unreleased]
 
-## [0.1.7] — unreleased
+## [0.1.8] — unreleased
+
+### Fixed
+
+- **Downgrade SQL.** `create_migration` writes reverse DDL for create table,
+  add column, add index, and rename column, in the opposite order. A drop
+  stays a comment. The forward plan does not keep the definition that was
+  thrown away, so the file does not pretend to undo it.
+- **Durable auth.** `durable_auth_service(session_factory, secret=...)` is
+  the wiring. Sessions, users, refresh tokens, API keys, password resets,
+  and rate limits are database rows. The scaffold and `phzyx add auth` call
+  it. `AuthService(config)` with no stores is still the in-memory stand-in
+  used by tests. Production mode refuses that stand-in; it does not open a
+  database by itself.
+- **Refresh-Request-Id.** The same id returns the pair from the first call.
+  A different id, or no id, on a consumed token revokes the family. The
+  30-second window from 0.1.7 is gone.
+- **`phzyx.engine`** re-exports `create_engine`, `create_sync_engine`,
+  `create_async_engine`, `create_session`, and `create_async_session`.
+  The implementation stays in `phzyx.orm`.
+
+### Unchanged
+
+- Cache stays an optional extra and is still `phzyx-cache` 0.1.6. It is off
+  unless the application turns it on.
+- Pulse is not part of the Forge production set. PostgreSQL `job_ledger` is
+  the job authority.
+
+## [0.1.7] — 2026-10-21
 
 ### Fixed
 

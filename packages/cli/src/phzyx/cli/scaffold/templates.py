@@ -463,20 +463,7 @@ from __future__ import annotations
 import os
 from collections.abc import Callable
 
-from phzyx.auth import (
-    AUTH_MODELS,
-    AuthConfig,
-    AuthService,
-    HybridUserMap,
-    JwtService,
-    OrmAPIKeyStore,
-    OrmPasswordResetStore,
-    OrmRateLimiter,
-    OrmRefreshStore,
-    OrmSessionStore,
-    OrmUserRepository,
-    PhzyxAuthz,
-)
+from phzyx.auth import AUTH_MODELS, AuthService, PhzyxAuthz, durable_auth_service
 from phzyx.auth.adapters.fastapi import mount_auth
 from phzyx.orm import Session
 
@@ -494,22 +481,10 @@ def build_auth_service(session_factory: SessionFactory) -> AuthService:
     production = settings.is_production or os.environ.get(
         "PHZYX_AUTH_PRODUCTION", ""
     ).lower() in {"1", "true", "yes"}
-    cfg = AuthConfig(
+    return durable_auth_service(
+        session_factory,
         secret=secret,
         production=production,
-        cookie_secure=production,
-        csrf_protect=True,
-    )
-    repo = OrmUserRepository(session_factory=session_factory)
-    refresh = OrmRefreshStore(session_factory=session_factory)
-    return AuthService(
-        config=cfg,
-        sessions=OrmSessionStore(session_factory=session_factory),
-        api_keys=OrmAPIKeyStore(session_factory=session_factory),
-        password_reset_store=OrmPasswordResetStore(session_factory=session_factory),
-        rate_limiter=OrmRateLimiter(session_factory=session_factory),
-        users=HybridUserMap(repo=repo),  # type: ignore[arg-type]
-        jwt=JwtService(secret=secret, refresh_store=refresh),
     )
 
 

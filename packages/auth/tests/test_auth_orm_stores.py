@@ -136,10 +136,26 @@ def test_orm_refresh_rate_limit_and_session_revoke(orm_svc: AuthService, tmp_pat
         refresh_store=OrmRefreshStore(session_factory=factory),
     )
     first = jwt.issue_pair(principal)
-    rotated = jwt.refresh(first.refresh_token, principal_loader=lambda _uid: principal)
+    rotated = jwt.refresh(
+        first.refresh_token,
+        principal_loader=lambda _uid: principal,
+        request_id="retry-1",
+    )
     assert rotated.refresh_token != first.refresh_token
-    replayed = jwt.refresh(first.refresh_token, principal_loader=lambda _uid: principal)
+    replayed = jwt.refresh(
+        first.refresh_token,
+        principal_loader=lambda _uid: principal,
+        request_id="retry-1",
+    )
     assert replayed.refresh_token == rotated.refresh_token
+    with pytest.raises(ValueError, match="invalid_refresh"):
+        jwt.refresh(
+            first.refresh_token,
+            principal_loader=lambda _uid: principal,
+            request_id="retry-2",
+        )
+    dead = jwt.refresh_store.get(rotated.refresh_token, secret=jwt.secret)
+    assert dead is not None and dead["revoked"]
 
     limiter = OrmRateLimiter(session_factory=factory)
     assert limiter.hit("login:test", limit=2, window_seconds=60)

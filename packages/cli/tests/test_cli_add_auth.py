@@ -24,7 +24,9 @@ def test_add_auth_writes_files(tmp_path: Path) -> None:
     auth = tmp_path / "app" / "forge" / "auth.py"
     readme = tmp_path / "AUTH.md"
     assert auth.is_file()
-    assert "install_auth" in auth.read_text()
+    text = auth.read_text()
+    assert "install_auth" in text
+    assert "durable_auth_service" in text
     assert readme.is_file()
     code2 = main(["add", "auth", "--path", str(tmp_path)])
     assert code2 == 2

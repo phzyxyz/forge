@@ -108,6 +108,50 @@ def test_login_jwt_and_api_key(client: TestClient) -> None:
 
 
 @pytest.mark.unit
+def test_refresh_request_id_replays_then_a_different_id_revokes(client: TestClient) -> None:
+    client.post(
+        "/auth/register",
+        json={"email": "refresh@phzyx.xyz", "password": "longpassword1"},
+    )
+    login = client.post(
+        "/auth/login",
+        json={
+            "email": "refresh@phzyx.xyz",
+            "password": "longpassword1",
+            "issue_jwt": True,
+        },
+    )
+    refresh_token = login.json()["refresh_token"]
+    first = client.post(
+        "/auth/refresh",
+        json={"refresh_token": refresh_token},
+        headers={"Refresh-Request-Id": "retry-1"},
+    )
+    assert first.status_code == 200
+    again = client.post(
+        "/auth/refresh",
+        json={"refresh_token": refresh_token},
+        headers={"Refresh-Request-Id": "retry-1"},
+    )
+    assert again.status_code == 200
+    assert again.json()["refresh_token"] == first.json()["refresh_token"]
+    assert again.json()["access_token"] == first.json()["access_token"]
+
+    other = client.post(
+        "/auth/refresh",
+        json={"refresh_token": refresh_token},
+        headers={"Refresh-Request-Id": "retry-2"},
+    )
+    assert other.status_code == 401
+    successor = client.post(
+        "/auth/refresh",
+        json={"refresh_token": first.json()["refresh_token"]},
+        headers={"Refresh-Request-Id": "retry-1"},
+    )
+    assert successor.status_code == 401
+
+
+@pytest.mark.unit
 def test_password_forgot_dev_token(client: TestClient) -> None:
     client.post(
         "/auth/register",

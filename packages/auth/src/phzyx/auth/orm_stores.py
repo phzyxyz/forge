@@ -595,9 +595,9 @@ def _refresh_view(row: RefreshToken) -> dict[str, Any]:
         "expires_at": _as_utc(row.expires_at),
         "scopes": row.scopes or "",
         "revoked": row.revoked_at is not None,
+        "receipt_request_id": row.receipt_request_id,
         "receipt_access": row.receipt_access,
         "receipt_refresh": row.receipt_refresh,
-        "receipt_until": _as_utc(row.receipt_expires_at),
         "receipt_expires_in": row.receipt_expires_in,
     }
 
@@ -650,13 +650,24 @@ class OrmRefreshStore:
         finally:
             session.close()
 
-    def mark_consumed(self, refresh_token: str, *, secret: str) -> bool:
+    def mark_consumed(
+        self,
+        refresh_token: str,
+        *,
+        secret: str,
+        request_id: str = "",
+    ) -> bool:
         session = self.session_factory()
         try:
             row = self._row(session, refresh_token, secret=secret)
             if row is None or row.revoked_at is not None:
                 return False
-            session.update(row, revoked_at=_now_naive())
+            # An empty id is not stored. Two callers that omit the header
+            # must not match each other and replay the pair.
+            changes: dict[str, Any] = {"revoked_at": _now_naive()}
+            if request_id:
+                changes["receipt_request_id"] = request_id
+            session.update(row, **changes)
             session.commit()
             return True
         finally:
@@ -667,11 +678,12 @@ class OrmRefreshStore:
         refresh_token: str,
         *,
         secret: str,
+        request_id: str,
         access_token: str,
         refresh_token_next: str,
         expires_in: int,
-        until: datetime,
     ) -> None:
+        """Store the successor pair under the request id that created it."""
         session = self.session_factory()
         try:
             row = self._row(session, refresh_token, secret=secret)
@@ -679,10 +691,10 @@ class OrmRefreshStore:
                 return
             session.update(
                 row,
+                receipt_request_id=request_id,
                 receipt_access=access_token,
                 receipt_refresh=refresh_token_next,
                 receipt_expires_in=expires_in,
-                receipt_expires_at=_naive(until),
             )
             session.commit()
         finally:
@@ -704,8 +716,8 @@ class OrmRefreshStore:
             session.execute(
                 f"UPDATE {table_name} SET "
                 f"revoked_at = COALESCE(revoked_at, {placeholder}), "
-                "receipt_access = NULL, receipt_refresh = NULL, "
-                "receipt_expires_at = NULL, receipt_expires_in = NULL "
+                "receipt_request_id = NULL, receipt_access = NULL, "
+                "receipt_refresh = NULL, receipt_expires_in = NULL "
                 f"WHERE family_id = {placeholder}",
                 [revoked_at, family_id],
             )

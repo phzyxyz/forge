@@ -8,6 +8,7 @@ from phzyx.auth.admin_bridge import PhzyxAuthz, PhzyxFieldAuthz
 from phzyx.auth.api_keys import IssuedAPIKey, MemoryAPIKeyStore
 from phzyx.auth.audit import AuditLog
 from phzyx.auth.config import AuthConfig
+from phzyx.auth.durable import durable_auth_service
 from phzyx.auth.decorators import (
     require_auth,
     require_permissions,
@@ -60,7 +61,7 @@ from phzyx.auth.service_async import AsyncAuthService
 from phzyx.auth.sessions import MemorySessionStore
 from phzyx.auth.tokens import JwtService, TokenPair
 
-__version__ = "0.1.7"
+__version__ = "0.1.8"
 
 __all__ = [
     "AUTH_MODELS",
@@ -110,6 +111,7 @@ __all__ = [
     "build_provider",
     "create_superuser",
     "default_passkey_backend",
+    "durable_auth_service",
     "generate_token",
     "has_permission",
     "hash_password",

@@ -339,9 +339,15 @@ def create_auth_router(service: AuthService, *, prefix: str = "/auth") -> Any:
             return _auth_error_response(exc)
 
     @router.post("/refresh")
-    async def refresh(body: dict[str, Any]) -> Any:
+    async def refresh(request: Request, body: dict[str, Any]) -> Any:
+        # Starlette header lookup is case-insensitive. The contract name
+        # is Refresh-Request-Id: the same id retries, a different id revokes.
+        request_id = request.headers.get("refresh-request-id")
         try:
-            pair = service.refresh_jwt(str(body.get("refresh_token") or ""))
+            pair = service.refresh_jwt(
+                str(body.get("refresh_token") or ""),
+                request_id=request_id,
+            )
             return {
                 "access_token": pair.access_token,
                 "refresh_token": pair.refresh_token,

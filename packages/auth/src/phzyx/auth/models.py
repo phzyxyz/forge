@@ -126,12 +126,12 @@ class RefreshToken(Model):
     expires_at: datetime = Field()
     revoked_at: datetime | None = Field(default=None)
     scopes: str = Field(default="")  # space-separated
-    # Short-lived lost-response receipt. Cleared when the grace window ends
-    # or the family is revoked. Holds the replacement tokens so a retry of
-    # the same refresh token returns the same pair instead of looking like theft.
+    # Lost-response receipt. The replacement pair is stored with the
+    # Refresh-Request-Id that produced it. The same id may read it again.
+    # A different id is reuse and the family is revoked. Time is not the key.
+    receipt_request_id: str | None = Field(default=None)
     receipt_access: str | None = Field(default=None, admin_exclude=True)
     receipt_refresh: str | None = Field(default=None, admin_exclude=True)
-    receipt_expires_at: datetime | None = Field(default=None)
     receipt_expires_in: int | None = Field(default=None)
     created_at: datetime | None = Field(default=None)
 

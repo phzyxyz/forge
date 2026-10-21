@@ -9,7 +9,7 @@ Usage (repo root):
   python scripts/build_pypi_release.py --out dist --skip-smoke
 
 Environment:
-  PHZYX_VERSION  override version (default 0.1.7)
+  PHZYX_VERSION  override version (default 0.1.8)
 """
 
 from __future__ import annotations
@@ -23,7 +23,7 @@ import tempfile
 import zipfile
 from pathlib import Path
 
-VERSION = "0.1.7"
+VERSION = "0.1.8"
 PUBLISH_NAMES = ("phzyx-forge", "phzyx-auth", "phzyx-cache")
 FORBIDDEN_WHEEL_PREFIXES = (
     "phzyx_schema",

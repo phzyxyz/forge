@@ -56,9 +56,9 @@ class MemoryRefreshStore:
                 "scopes": scopes,
                 "revoked": False,
                 "raw_jti": jti,
+                "receipt_request_id": None,
                 "receipt_access": None,
                 "receipt_refresh": None,
-                "receipt_until": None,
                 "receipt_expires_in": None,
             }
 
@@ -75,18 +75,20 @@ class MemoryRefreshStore:
                 "expires_at": rec["expires_at"],
                 "scopes": rec["scopes"],
                 "revoked": bool(rec["revoked"] or family_revoked),
+                "receipt_request_id": rec.get("receipt_request_id") if receipt else None,
                 "receipt_access": rec.get("receipt_access") if receipt else None,
                 "receipt_refresh": rec.get("receipt_refresh") if receipt else None,
-                "receipt_until": rec.get("receipt_until") if receipt else None,
                 "receipt_expires_in": rec.get("receipt_expires_in") if receipt else None,
             }
 
-    def mark_consumed(self, refresh_token: str, *, secret: str) -> bool:
+    def mark_consumed(self, refresh_token: str, *, secret: str, request_id: str = "") -> bool:
         with self._lock:
             rec = self._by_jti.get(hash_token(refresh_token, secret=secret))
             if rec is None or rec["revoked"] or rec["family_id"] in self._family_revoked:
                 return False
             rec["revoked"] = True
+            if request_id:
+                rec["receipt_request_id"] = request_id
             return True
 
     def save_receipt(
@@ -94,19 +96,20 @@ class MemoryRefreshStore:
         refresh_token: str,
         *,
         secret: str,
+        request_id: str,
         access_token: str,
         refresh_token_next: str,
         expires_in: int,
-        until: datetime,
     ) -> None:
+        """Store the successor pair under the request id that created it."""
         with self._lock:
             rec = self._by_jti.get(hash_token(refresh_token, secret=secret))
             if rec is None:
                 return
+            rec["receipt_request_id"] = request_id
             rec["receipt_access"] = access_token
             rec["receipt_refresh"] = refresh_token_next
             rec["receipt_expires_in"] = expires_in
-            rec["receipt_until"] = until
 
     def consume(self, refresh_token: str, *, secret: str) -> dict[str, Any] | None:
         rec = self.get(refresh_token, secret=secret)
@@ -125,9 +128,9 @@ class MemoryRefreshStore:
             for rec in self._by_jti.values():
                 if rec["family_id"] == family_id:
                     rec["revoked"] = True
+                    rec["receipt_request_id"] = None
                     rec["receipt_access"] = None
                     rec["receipt_refresh"] = None
-                    rec["receipt_until"] = None
                     rec["receipt_expires_in"] = None
 
 
@@ -135,16 +138,15 @@ class MemoryRefreshStore:
 class JwtService:
     """Issue and verify access JWTs; rotate refresh inside one family.
 
-    A retry of the same refresh token inside ``refresh_grace`` seconds
-    returns the pair already issued (lost-response receipt). After that
-    window, presenting the consumed token revokes the family.
+    A retry is identified by ``Refresh-Request-Id``, not by a clock.
+    The same id presented again returns the pair from the first call.
+    A different id, or no id, on an already consumed token revokes the family.
     """
 
     secret: str
     issuer: str = "phzyx-auth"
     access_ttl: int = 900
     refresh_ttl: int = 60 * 60 * 24 * 30
-    refresh_grace: int = 30
     refresh_store: Any = field(default_factory=MemoryRefreshStore)
 
     def issue_pair(
@@ -212,20 +214,18 @@ class JwtService:
             auth_method="jwt",
         )
 
-    def _receipt_still_valid(self, record: dict[str, Any], now: datetime) -> TokenPair | None:
-        """Pair saved for a lost response, if the grace window is still open.
+    def _receipt_for_request(self, record: dict[str, Any], request_id: str) -> TokenPair | None:
+        """Successor pair saved for this exact ``Refresh-Request-Id``.
 
-        The first successful refresh stores the new access token and the new
-        refresh token on the old row. A retry of that same old token returns
-        those values instead of minting another pair or treating the caller
-        as a thief. After ``receipt_until`` this returns None.
+        An empty id never matches. A different id never matches. The pair
+        has to have been stored already; a consume that has not saved one
+        yet is not a replay.
         """
+        if not request_id or record.get("receipt_request_id") != request_id:
+            return None
         access_token = record.get("receipt_access")
         next_refresh_token = record.get("receipt_refresh")
-        valid_until = _as_utc(record.get("receipt_until"))
         if not access_token or not next_refresh_token:
-            return None
-        if valid_until is None or valid_until < now:
             return None
         expires_in = record.get("receipt_expires_in") or self.access_ttl
         return TokenPair(
@@ -234,21 +234,28 @@ class JwtService:
             expires_in=int(expires_in),
         )
 
-    def refresh(self, refresh_token: str, *, principal_loader) -> TokenPair:
+    def refresh(
+        self,
+        refresh_token: str,
+        *,
+        principal_loader,
+        request_id: str | None = None,
+    ) -> TokenPair:
         """Rotate refresh inside the same family.
 
-        ``principal_loader(user_id)`` returns a :class:`Principal`. A second
-        presentation of this same token inside the grace window returns the
-        pair from the first call. A later presentation revokes the family.
+        ``principal_loader(user_id)`` returns a :class:`Principal`.
+        ``request_id`` is the ``Refresh-Request-Id`` header. The same id
+        returns the pair already issued. Any other presentation of a
+        consumed token revokes the family.
         """
+        presented_request_id = (request_id or "").strip()
         now = datetime.now(UTC)
         record = self.refresh_store.get(refresh_token, secret=self.secret)
         if record is None:
             raise ValueError("invalid_refresh")
 
-        # Already consumed. Replay the saved pair, or revoke the family.
         if record["revoked"]:
-            replayed = self._receipt_still_valid(record, now)
+            replayed = self._receipt_for_request(record, presented_request_id)
             if replayed is not None:
                 return replayed
             self.refresh_store.revoke_family(record["family_id"])
@@ -258,12 +265,15 @@ class JwtService:
         if expires_at is None or expires_at < now:
             raise ValueError("invalid_refresh")
 
-        consumed = self.refresh_store.mark_consumed(refresh_token, secret=self.secret)
+        consumed = self.refresh_store.mark_consumed(
+            refresh_token,
+            secret=self.secret,
+            request_id=presented_request_id,
+        )
         if not consumed:
-            # Lost the race with another request that consumed it first.
             raced = self.refresh_store.get(refresh_token, secret=self.secret)
             if raced is not None:
-                replayed = self._receipt_still_valid(raced, now)
+                replayed = self._receipt_for_request(raced, presented_request_id)
                 if replayed is not None:
                     return replayed
                 self.refresh_store.revoke_family(raced["family_id"])
@@ -273,12 +283,13 @@ class JwtService:
         scope_text = record.get("scopes") or ""
         scopes = [scope for scope in scope_text.split() if scope]
         pair = self.issue_pair(principal, scopes=scopes, family_id=record["family_id"])
-        self.refresh_store.save_receipt(
-            refresh_token,
-            secret=self.secret,
-            access_token=pair.access_token,
-            refresh_token_next=pair.refresh_token,
-            expires_in=pair.expires_in,
-            until=now + timedelta(seconds=self.refresh_grace),
-        )
+        if presented_request_id:
+            self.refresh_store.save_receipt(
+                refresh_token,
+                secret=self.secret,
+                request_id=presented_request_id,
+                access_token=pair.access_token,
+                refresh_token_next=pair.refresh_token,
+                expires_in=pair.expires_in,
+            )
         return pair
